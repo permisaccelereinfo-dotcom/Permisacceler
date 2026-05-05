@@ -29,7 +29,23 @@ export default function LoginPage() {
 
       if (error) throw error;
 
-      router.push("/");
+      // Get user role to redirect to appropriate dashboard
+      if (data.user) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", data.user.id)
+          .single();
+
+        if (userData?.role === "auto_ecole") {
+          router.push("/dashboard");
+        } else {
+          router.push("/mon-compte");
+        }
+      } else {
+        router.push("/mon-compte");
+      }
+
       router.refresh();
     } catch (err: any) {
       setError(err.message || "Erreur de connexion");

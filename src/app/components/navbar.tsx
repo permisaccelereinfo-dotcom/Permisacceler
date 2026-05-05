@@ -1,20 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, User, HelpCircle } from "lucide-react";
+import { Menu, X, User, HelpCircle, LogOut } from "lucide-react";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const supabase = createClient();
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("name, role")
+          .eq("id", authUser.id)
+          .single();
+        setUser({ ...authUser, ...userData });
+      }
+    };
+    checkUser();
+  }, [supabase]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    window.location.href = "/";
+  };
 
   return (
     <nav className="sticky top-0 z-50 bg-[#1278CC] border-b-0">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col">
             <a href="/" className="flex items-center gap-2">
               <span className="text-2xl font-extrabold text-white tracking-tight italic">PermisAccéléré</span>
             </a>
+            <span className="text-[10px] text-white/80 font-medium tracking-wide">Plateforme n°1 des Permis Accélérés en France</span>
           </div>
 
           {/* Desktop Navigation */}
@@ -25,19 +51,43 @@ export function Navbar() {
             >
               Vous êtes auto-école ?
             </a>
-            
-            <a href="#how-it-works" className="flex items-center gap-1.5 text-sm font-semibold text-white hover:text-gray-200 transition-colors">
+
+            <a href="/centre-d-aide" className="flex items-center gap-1.5 text-sm font-semibold text-white hover:text-gray-200 transition-colors">
               <HelpCircle className="h-4 w-4" />
               <span>Centre d'aide</span>
             </a>
-            
-            <a href="/login" className="flex items-center gap-1.5 text-sm font-semibold text-white hover:text-gray-200 transition-colors">
-              <User className="h-4 w-4" />
-              <div className="flex flex-col items-start leading-none">
-                <span className="font-bold">Se connecter</span>
-                <span className="text-[10px] font-normal opacity-80 mt-0.5">Gérer mes RDV</span>
+
+            {user ? (
+              <div className="flex items-center gap-4">
+                <Link
+                  href={user.role === "auto_ecole" ? "/dashboard" : "/mon-compte"}
+                  className="flex items-center gap-1.5 text-sm font-semibold text-white hover:text-gray-200 transition-colors"
+                >
+                  <User className="h-4 w-4" />
+                  <div className="flex flex-col items-start leading-none">
+                    <span className="font-bold">{user.name?.split(" ")[0] || "Mon compte"}</span>
+                    <span className="text-[10px] font-normal opacity-80 mt-0.5">
+                      {user.role === "auto_ecole" ? "Espace pro" : "Gérer mes RDV"}
+                    </span>
+                  </div>
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+                  title="Déconnexion"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
               </div>
-            </a>
+            ) : (
+              <a href="/login" className="flex items-center gap-1.5 text-sm font-semibold text-white hover:text-gray-200 transition-colors">
+                <User className="h-4 w-4" />
+                <div className="flex flex-col items-start leading-none">
+                  <span className="font-bold">Se connecter</span>
+                  <span className="text-[10px] font-normal opacity-80 mt-0.5">Gérer mes RDV</span>
+                </div>
+              </a>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -63,12 +113,29 @@ export function Navbar() {
               <a href="/auto-ecole" className="block rounded-lg bg-white px-4 py-3 text-base font-bold text-navy text-center">
                 Vous êtes auto-école ?
               </a>
-              <a href="#how-it-works" className="block rounded-lg px-4 py-3 text-base font-semibold text-white hover:bg-primary-hover">
+              <a href="/centre-d-aide" className="block rounded-lg px-4 py-3 text-base font-semibold text-white hover:bg-primary-hover">
                 Centre d'aide
               </a>
-              <a href="/login" className="block rounded-lg px-4 py-3 text-base font-semibold text-white hover:bg-primary-hover">
-                Se connecter
-              </a>
+              {user ? (
+                <>
+                  <Link
+                    href={user.role === "auto_ecole" ? "/dashboard" : "/mon-compte"}
+                    className="block rounded-lg px-4 py-3 text-base font-semibold text-white hover:bg-primary-hover"
+                  >
+                    Mon compte ({user.name?.split(" ")[0]})
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="block w-full text-left rounded-lg px-4 py-3 text-base font-semibold text-white hover:bg-primary-hover"
+                  >
+                    Se déconnecter
+                  </button>
+                </>
+              ) : (
+                <a href="/login" className="block rounded-lg px-4 py-3 text-base font-semibold text-white hover:bg-primary-hover">
+                  Se connecter
+                </a>
+              )}
             </div>
           </motion.div>
         )}

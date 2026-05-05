@@ -545,7 +545,7 @@ function SearchContent() {
                   href="/alerte"
                   className="block w-full py-3 bg-white text-blue-600 font-bold rounded-xl text-center hover:bg-blue-50 transition-colors"
                 >
-                  Créer une alerte
+                  Etre Contacter
                 </Link>
               </div>
 

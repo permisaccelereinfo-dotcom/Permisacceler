@@ -20,22 +20,15 @@ const TwitterIcon = () => (
 
 const footerLinks = {
   services: [
-    { label: "Permis B", href: "#" },
-    { label: "Conduite accompagnée", href: "#" },
-    { label: "Perfectionnement", href: "#" },
-    { label: "Code de la route", href: "#" },
+    { label: "Recherche de stage", href: "/recherche" },
+    { label: "Comment ça marche", href: "#how-it-works" },
+    { label: "Tarifs", href: "#pricing" },
   ],
-  company: [
+  entreprise: [
     { label: "À propos", href: "#" },
-    { label: "Nos moniteurs", href: "#" },
     { label: "Témoignages", href: "#" },
     { label: "Blog", href: "#" },
-  ],
-  support: [
-    { label: "FAQ", href: "#" },
     { label: "Contact", href: "#" },
-    { label: "Mentions légales", href: "#" },
-    { label: "Politique de confidentialité", href: "#" },
   ],
 };
 
@@ -43,7 +36,7 @@ export function Footer() {
   return (
     <footer className="bg-gray-900 text-gray-300">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Brand */}
           <div className="lg:col-span-1">
             <div className="flex items-center gap-2">
@@ -53,7 +46,7 @@ export function Footer() {
               <span className="text-xl font-bold text-white">Permis Accéléré</span>
             </div>
             <p className="mt-4 text-sm text-gray-400">
-              Votre permis de conduire en 7 jours. Formation intensive avec des professionnels expérimentés.
+              Votre permis de conduire en formation accéléré avec nos auto école partenaires
             </p>
             <div className="mt-6 flex gap-4">
               <a href="#" className="rounded-full bg-gray-800 p-2 hover:bg-blue-600 transition-colors">
@@ -85,20 +78,7 @@ export function Footer() {
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Entreprise</h3>
             <ul className="mt-4 space-y-3">
-              {footerLinks.company.map((link) => (
-                <li key={link.label}>
-                  <a href={link.href} className="text-sm hover:text-white transition-colors">
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Support</h3>
-            <ul className="mt-4 space-y-3">
-              {footerLinks.support.map((link) => (
+              {footerLinks.entreprise.map((link) => (
                 <li key={link.label}>
                   <a href={link.href} className="text-sm hover:text-white transition-colors">
                     {link.label}

@@ -179,10 +179,9 @@ export function Hero() {
                       onChange={(e) => setCity(e.target.value)}
                       className="w-full bg-transparent border-none focus:ring-0 text-gray-900 font-semibold outline-none text-sm p-0 appearance-none cursor-pointer"
                     >
-                      <option value="">Sélectionnez une ville...</option>
-                      {frenchCities.map((cityName) => (
-                        <option key={cityName} value={cityName}>{cityName}</option>
-                      ))}
+                      <option value="">Sélectionnez...</option>
+                      <option value="ile_de_france">Île de France</option>
+                      <option value="province">Province</option>
                     </select>
                     <ChevronDown className="h-3 w-3 text-gray-400 group-hover:text-[#1278CC] transition-colors ml-auto" />
                   </div>

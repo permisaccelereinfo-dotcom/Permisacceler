@@ -7,29 +7,29 @@ import Image from "next/image";
 const features = [
   {
     image: "/time.png",
-    title: "RDV rapide garanti",
+    title: "Date d'examen garanti",
     description: "Obtenez des dates d'évaluation et de formation en accéléré, sans liste d'attente.",
   },
   {
     image: "/learning.png",
-    title: "Moniteurs experts",
+    title: "Auto école partenaires",
     description: "Des professionnels certifiés par l'État pour un apprentissage serein et sur-mesure.",
   },
   {
     image: "/winner.png",
-    title: "Taux de réussite record",
+    title: "Rapidité record",
     description: "La majorité de nos élèves réussissent leur examen du premier coup grâce à notre méthode.",
   },
 ];
 
-const includedItems = [
-  "31 heures de conduite",
-  "Durée du stage : 15 jours",
-  "1 h d'accompagnement à l'examen offerte",
-  "6 h d'écoute pédagogique en voiture",
-  "Des modules e-learning complets",
-  "1 mois d'abonnement au code",
-  "Place d'examen sous 10 jours",
+const missionItems = [
+  "Vous accompagner jusqu'au permis en 15 jours",
+  "Garantir votre place d'examen dès 72h",
+  "Sécuriser votre passage avec nos partenaires",
+  "Réduire votre temps d'attente de 50%",
+  "Simplifier vos démarches administratives",
+  "Vous garantir satisfaction ou remboursement",
+  "Être disponible 7j/7 pour vous aider",
 ];
 
 const cities = [
@@ -105,7 +105,8 @@ export function Features() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-16">
+        {/* Desktop: Grid / Mobile: Scrolling Marquee */}
+        <div className="hidden md:grid md:grid-cols-3 gap-x-8 gap-y-16">
           {features.map((feature, index) => (
             <motion.div
               key={feature.title}
@@ -133,11 +134,43 @@ export function Features() {
           ))}
         </div>
 
-        {/* Two-column section: Inclus dans l'offre + Près de chez vous */}
-        <div className="mt-12 border-t border-gray-100 pt-12">
+        {/* Mobile: Infinite Scrolling Marquee */}
+        <div className="md:hidden overflow-hidden">
+          <div className="flex animate-marquee">
+            {/* First set */}
+            {features.map((feature, index) => (
+              <div key={`first-${index}`} className="flex-shrink-0 w-[280px] px-4 flex flex-col items-center text-center">
+                <div className="relative mb-4">
+                  <div className="absolute inset-0 bg-[#e5f4fd] rounded-[40%_60%_70%_30%/40%_50%_60%_50%] w-20 h-20 -ml-2 top-1 rotate-12"></div>
+                  <div className="relative z-10 flex h-16 w-16 items-center justify-center">
+                    <Image src={feature.image} alt={feature.title} width={64} height={64} className="object-contain drop-shadow-sm w-auto h-auto" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-bold text-navy mb-2">{feature.title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{feature.description}</p>
+              </div>
+            ))}
+            {/* Duplicate set for seamless loop */}
+            {features.map((feature, index) => (
+              <div key={`second-${index}`} className="flex-shrink-0 w-[280px] px-4 flex flex-col items-center text-center">
+                <div className="relative mb-4">
+                  <div className="absolute inset-0 bg-[#e5f4fd] rounded-[40%_60%_70%_30%/40%_50%_60%_50%] w-20 h-20 -ml-2 top-1 rotate-12"></div>
+                  <div className="relative z-10 flex h-16 w-16 items-center justify-center">
+                    <Image src={feature.image} alt={feature.title} width={64} height={64} className="object-contain drop-shadow-sm w-auto h-auto" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-bold text-navy mb-2">{feature.title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Two-column section: Notre Mission + Près de chez vous */}
+        <div className="mt-6 lg:mt-12 border-t border-gray-100 pt-6 lg:pt-12">
           <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-12 lg:gap-16">
 
-            {/* Left Column – Inclus dans l'offre */}
+            {/* Left Column – Notre Mission */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -147,10 +180,10 @@ export function Features() {
             >
               <div className="bg-[#faf8f5] rounded-2xl p-7 border border-[#ece7df]">
                 <h3 className="text-lg font-bold text-gray-900 mb-5">
-                  Inclus dans l&apos;offre :
+                  Notre Mission :
                 </h3>
                 <ul className="space-y-3.5">
-                  {includedItems.map((item) => (
+                  {missionItems.map((item) => (
                     <li key={item} className="flex items-start gap-2.5">
                       <Check className="h-4.5 w-4.5 text-gray-700 shrink-0 mt-0.5" strokeWidth={2.5} />
                       <span className="text-sm text-gray-700 leading-snug">{item}</span>
@@ -159,34 +192,26 @@ export function Features() {
                 </ul>
               </div>
 
-              {/* Badges underneath */}
-              <div className="mt-5 space-y-3.5">
-                <div className="flex items-center gap-3.5 bg-white rounded-xl px-5 py-3.5 border border-gray-200 shadow-sm">
-                  <div className="flex items-center justify-center h-12 w-12 shrink-0">
-                    <Image src="/cpf.png" alt="Financement CPF" width={48} height={48} className="object-contain w-auto h-auto" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">Financement avec votre CPF</p>
-                    <p className="text-xs text-gray-500">(demandeurs d&apos;emploi)</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3.5 bg-white rounded-xl px-5 py-3.5 border border-gray-200 shadow-sm">
-                  <div className="flex items-center justify-center h-12 w-12 shrink-0">
-                    <Image src="/paiement.png" alt="Paiement 4x" width={48} height={48} className="object-contain w-auto h-auto" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">Paiement en 4x sans frais possible</p>
-                  </div>
-                </div>
+              {/* CTA Section */}
+              <div className="mt-6 bg-[#1278CC] rounded-2xl p-6 text-white">
+                <h4 className="text-lg font-bold mb-2">Votre Stage accéléré près de chez vous</h4>
+                <p className="text-sm text-white/90 mb-4">Un Stage rapide avec une date garanti Ça change tout</p>
+                <a
+                  href="/recherche"
+                  className="inline-flex items-center justify-center w-full px-6 py-3 bg-white text-[#1278CC] font-bold rounded-xl hover:bg-gray-100 transition-colors"
+                >
+                  Je cherche mon stage
+                </a>
               </div>
             </motion.div>
 
-            {/* Right Column – Près de chez vous */}
+            {/* Right Column – Près de chez vous - Hidden on mobile */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: 0.15 }}
+              className="hidden lg:block"
             >
               <h3 className="text-2xl font-bold text-gray-900 mb-2">
                 Près de chez vous

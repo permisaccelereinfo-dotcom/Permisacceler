@@ -51,12 +51,12 @@ export function AlertSection() {
 
           {/* Title */}
           <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900">
-            Vous ne trouvez pas de stage dans vos critères ?
+            Vous ne trouvez pas de stage qui vous correspond ?
           </h2>
 
           {/* Subtitle */}
           <p className="mt-4 text-gray-600 max-w-xl mx-auto">
-            Créez une alerte et soyez informé dès qu'un stage correspondant à votre recherche est disponible.
+            Remplissez ce formulaire afin d'être contacté par un de nos experts
           </p>
 
           {/* Form */}
@@ -149,7 +149,7 @@ export function AlertSection() {
                 type="submit"
                 className="rounded-lg bg-amber-500 px-8 py-3 text-base font-medium text-white transition-colors hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500/20 whitespace-nowrap"
               >
-                Créer une alerte
+                Etre Contacter
               </button>
             </div>
           </form>

@@ -1,4 +1,4 @@
-"use client";
+  "use client";
 
 import { motion } from "framer-motion";
 import { Bell } from "lucide-react";
@@ -45,10 +45,10 @@ export function StageAlert() {
             className="text-3xl md:text-[40px] font-bold text-gray-900 mb-6 tracking-tight leading-tight"
             style={{ fontFamily: 'var(--ds-nb---font--primary)' }}
           >
-            Vous ne trouvez pas de stage dans vos critères ?
+            Vous ne trouvez pas de stage qui vous correspond ?
           </h2>
           <p className="text-xl text-gray-700 max-w-3xl leading-relaxed">
-            Créez une alerte et soyez informé dès qu'un stage correspondant à votre recherche est disponible.
+            Remplissez ce formulaire afin d'être contacté par un de nos experts
           </p>
         </div>
 
@@ -91,7 +91,7 @@ export function StageAlert() {
                 type="submit"
                 className="bg-[#583e58] hover:bg-[#4a344a] text-white font-bold py-5 px-12 rounded-xl shadow-lg transition-all text-lg"
               >
-                Créer une alerte
+                Etre Contacter
               </motion.button>
             </div>
           </form>

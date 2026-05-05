@@ -14,19 +14,19 @@ export function HowItWorks() {
     {
       image: "/chain.png",
       step: "2",
-      title: "Mise en relation",
+      title: "Mise en relation avec l'auto école partenaire",
       description: "Nous vous mettons en relation avec votre expert dédié.",
     },
     {
       image: "/education.png",
       step: "3",
-      title: "Code & Conduite",
+      title: "Conduite accélérée",
       description: "Accès e-learning et immersion totale : 3 à 4h de conduite par jour.",
     },
     {
       image: "/exam.png",
       step: "4",
-      title: "Examen",
+      title: "Examen de conduite",
       description: "Placement prioritaire à l'examen sur vos parcours.",
     },
   ];
