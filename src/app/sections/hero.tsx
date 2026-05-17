@@ -313,7 +313,7 @@ export function Hero() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.3 }}
-            className="w-full lg:w-[35%] xl:w-[30%] relative flex justify-center lg:justify-end lg:-mr-16 xl:-mr-30 lg:translate-x-[20%] xl:translate-x-[25%]"
+            className="w-full lg:w-[35%] xl:w-[30%] relative flex justify-center lg:justify-end lg:-mr-12 xl:-mr-20 lg:translate-x-[15%] xl:translate-x-[15%]"
           >
             
             <div className="relative z-10 w-full max-w-[620px] h-[312px] sm:h-[346px] lg:h-[370px]">
