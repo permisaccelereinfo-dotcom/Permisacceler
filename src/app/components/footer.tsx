@@ -48,7 +48,7 @@ export function Footer() {
           {/* Brand */}
           <div className="lg:col-span-1">
             <span className="text-2xl font-extrabold text-white tracking-tight italic" style={{ fontFamily: 'var(--ds-nb---font--primary)' }}>
-              Permis Accéléré
+              PermisAcceler
             </span>
             <p className="mt-4 text-sm text-white text-opacity-90 leading-relaxed">
               Votre permis de conduire en formation accéléré avec nos auto écoles partenaires
@@ -95,7 +95,7 @@ export function Footer() {
         </div>
 
         <div className="border-t border-white border-opacity-20 pt-8 text-center text-sm text-white text-opacity-70">
-          <p>&copy; {new Date().getFullYear()} Permis Accéléré. Tous droits réservés.</p>
+          <p>&copy; {new Date().getFullYear()} PermisAcceler. Tous droits réservés.</p>
         </div>
       </div>
     </footer>

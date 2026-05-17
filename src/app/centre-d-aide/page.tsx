@@ -8,17 +8,17 @@ const faqItems = [
   {
     id: 1,
     title: "J'ai oublié mon mot de passe, que faire ?",
-    description: "Vous ne parvenez pas à vous connecter à votre compte et vous souhaitez réinitialiser votre mot de passe ? Su...",
+    description: "Vous ne parvenez pas à vous connecter à votre compte et vous souhaitez réinitialiser votre mot de passe ? Suivez les étapes sur la page de connexion.",
   },
   {
     id: 2,
-    title: "M'informer sur l'Assistant téléphonique",
-    description: "Afin de se consacrer davantage à vos soins tout en restant disponible pour traiter vos demandes, votre soignant peut ...",
+    title: "Comment réserver un stage accéléré ?",
+    description: "Recherchez une auto-école partenaire près de chez vous, sélectionnez une date de stage disponible et validez votre réservation directement en ligne.",
   },
   {
     id: 3,
-    title: "Mon soignant n'a pas de disponibilité en ligne ou n'est pas sur Doctolib, que faire ?",
-    description: "Vous ne trouvez pas votre soignant sur Doctolib ou celui-ci n'a pas de disponibilité en ligne, voyons quoi faire selo...",
+    title: "Quelles sont les conditions pour le permis accéléré ?",
+    description: "Vous devez posséder un numéro NEPH valide. Si vous n'avez pas encore votre code, de nombreuses auto-écoles proposent des formules l'incluant.",
   },
 ];
 
@@ -38,24 +38,6 @@ export default function CentreDAidePage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="bg-[#0078C8] px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-              <span className="text-[#0078C8] font-bold text-xl">D</span>
-            </div>
-            <span className="text-white font-semibold text-lg">Centre d&apos;aide</span>
-          </div>
-          <a
-            href="#"
-            className="text-white text-sm hover:underline flex items-center gap-2"
-          >
-            <ExternalLink className="w-4 h-4" />
-            Réserver un rendez-vous sur Doctolib
-          </a>
-        </div>
-      </header>
 
       {/* Search Section */}
       <section className="bg-[#0078C8] pb-16 pt-8 px-6">
