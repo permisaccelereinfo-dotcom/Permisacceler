@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -191,78 +191,17 @@ export default function AutoEcolePage() {
 
       <div className="relative px-4 sm:px-6 lg:px-8 py-8">
         <div className="mx-auto max-w-6xl">
-          {/* Header */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="text-center py-12 lg:py-16"
-          >
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black mb-6 tracking-tight">
-              <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                Vous êtes auto-école ?
-              </span>
-            </h1>
-            <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-              Rejoignez notre réseau de partenaires et accédez à des milliers de candidats à la recherche de formation accélérée.
-            </p>
 
-            {/* Trust badges */}
-            <div className="flex flex-wrap items-center justify-center gap-6 mt-8">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <CheckCircle2 className="w-5 h-5 text-green-500" />
-                <span>Inscription gratuite</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <CheckCircle2 className="w-5 h-5 text-green-500" />
-                <span>Sans engagement</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <CheckCircle2 className="w-5 h-5 text-green-500" />
-                <span>Support dédié</span>
-              </div>
-            </div>
-          </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
-            {/* Left side - Benefits */}
-            <motion.div 
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="p-8 lg:p-10"
-            >
-              <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-8">
-                Pourquoi nous rejoindre ?
-              </h2>
-              <div className="space-y-5">
-                {benefits.map((benefit, index) => (
-                  <motion.div 
-                    key={index} 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
-                    className="flex gap-4 group p-3 rounded-xl hover:bg-gray-50/80 transition-colors duration-300"
-                  >
-                    <div className={`flex-shrink-0 w-12 h-12 rounded-2xl ${benefit.bgColor} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                      <benefit.icon className={`w-6 h-6 ${benefit.iconColor}`} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-gray-900 text-lg">{benefit.title}</h3>
-                      <p className="text-gray-600 mt-1 leading-relaxed">{benefit.description}</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Right side - Forms */}
-            <motion.div 
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl shadow-blue-900/5 overflow-hidden border border-white/50"
-            >
+          <div className="flex flex-col gap-16 items-center">
+            {/* Top - Forms */}
+            <div className="w-full max-w-2xl">
+              <motion.div 
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl shadow-blue-900/5 overflow-hidden border border-white/50"
+              >
               {/* Tabs */}
               <div className="flex bg-gradient-to-r from-gray-50/80 to-gray-100/50 p-2">
                 <button
@@ -556,6 +495,38 @@ export default function AutoEcolePage() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </div>
+              </motion.div>
+            </div>
+
+            {/* Bottom - Benefits */}
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="w-full mt-8"
+            >
+              <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center" style={{ fontFamily: 'var(--ds-nb---font--primary)' }}>
+                Pourquoi nous rejoindre ?
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-5xl mx-auto">
+                {benefits.map((benefit, index) => (
+                  <motion.div 
+                    key={index} 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
+                    className="flex flex-col items-center text-center gap-3 group px-4"
+                  >
+                    <div className={`flex-shrink-0 w-12 h-12 rounded-xl ${benefit.bgColor} flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+                      <benefit.icon className={`w-5 h-5 ${benefit.iconColor}`} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-base">{benefit.title}</h3>
+                      <p className="text-gray-500 mt-1.5 leading-relaxed text-sm">{benefit.description}</p>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             </motion.div>
           </div>

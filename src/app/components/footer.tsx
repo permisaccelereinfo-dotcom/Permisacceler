@@ -1,4 +1,6 @@
-import { Car } from "lucide-react";
+"use client";
+
+import { usePathname } from "next/navigation";
 
 const FacebookIcon = () => (
   <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
@@ -33,29 +35,32 @@ const footerLinks = {
 };
 
 export function Footer() {
+  const pathname = usePathname();
+  
+  if (pathname === "/recherche" || pathname?.startsWith("/stage/") || pathname?.startsWith("/checkout/")) {
+    return null;
+  }
+
   return (
-    <footer className="bg-gray-900 text-gray-300">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+    <footer className="bg-[#1278CC] text-white pt-16 pb-8">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-3 mb-12">
           {/* Brand */}
           <div className="lg:col-span-1">
-            <div className="flex items-center gap-2">
-              <div className="rounded-lg bg-blue-600 p-2">
-                <Car className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-white">Permis Accéléré</span>
-            </div>
-            <p className="mt-4 text-sm text-gray-400">
-              Votre permis de conduire en formation accéléré avec nos auto école partenaires
+            <span className="text-2xl font-extrabold text-white tracking-tight italic" style={{ fontFamily: 'var(--ds-nb---font--primary)' }}>
+              Permis Accéléré
+            </span>
+            <p className="mt-4 text-sm text-white text-opacity-90 leading-relaxed">
+              Votre permis de conduire en formation accéléré avec nos auto écoles partenaires
             </p>
             <div className="mt-6 flex gap-4">
-              <a href="#" className="rounded-full bg-gray-800 p-2 hover:bg-blue-600 transition-colors">
+              <a href="#" className="flex items-center justify-center h-11 w-11 rounded-full bg-white hover:bg-gray-50 transition-all duration-200 hover:scale-110 transform text-[#1278CC] shadow-sm">
                 <FacebookIcon />
               </a>
-              <a href="#" className="rounded-full bg-gray-800 p-2 hover:bg-blue-600 transition-colors">
+              <a href="#" className="flex items-center justify-center h-11 w-11 rounded-full bg-white hover:bg-gray-50 transition-all duration-200 hover:scale-110 transform text-[#1278CC] shadow-sm">
                 <InstagramIcon />
               </a>
-              <a href="#" className="rounded-full bg-gray-800 p-2 hover:bg-blue-600 transition-colors">
+              <a href="#" className="flex items-center justify-center h-11 w-11 rounded-full bg-white hover:bg-gray-50 transition-all duration-200 hover:scale-110 transform text-[#1278CC] shadow-sm">
                 <TwitterIcon />
               </a>
             </div>
@@ -63,11 +68,11 @@ export function Footer() {
 
           {/* Links */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Services</h3>
-            <ul className="mt-4 space-y-3">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-white mb-6">Services</h3>
+            <ul className="space-y-4">
               {footerLinks.services.map((link) => (
                 <li key={link.label}>
-                  <a href={link.href} className="text-sm hover:text-white transition-colors">
+                  <a href={link.href} className="text-sm text-white text-opacity-80 hover:text-opacity-100 transition-all duration-200 font-medium">
                     {link.label}
                   </a>
                 </li>
@@ -76,11 +81,11 @@ export function Footer() {
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Entreprise</h3>
-            <ul className="mt-4 space-y-3">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-white mb-6">Entreprise</h3>
+            <ul className="space-y-4">
               {footerLinks.entreprise.map((link) => (
                 <li key={link.label}>
-                  <a href={link.href} className="text-sm hover:text-white transition-colors">
+                  <a href={link.href} className="text-sm text-white text-opacity-80 hover:text-opacity-100 transition-all duration-200 font-medium">
                     {link.label}
                   </a>
                 </li>
@@ -89,7 +94,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 border-t border-gray-800 pt-8 text-center text-sm text-gray-400">
+        <div className="border-t border-white border-opacity-20 pt-8 text-center text-sm text-white text-opacity-70">
           <p>&copy; {new Date().getFullYear()} Permis Accéléré. Tous droits réservés.</p>
         </div>
       </div>

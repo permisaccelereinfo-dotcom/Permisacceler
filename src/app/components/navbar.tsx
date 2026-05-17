@@ -5,11 +5,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, User, HelpCircle, LogOut } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { usePathname } from "next/navigation";
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const supabase = createClient();
+  const pathname = usePathname();
 
   useEffect(() => {
     const checkUser = async () => {
@@ -32,14 +34,31 @@ export function Navbar() {
     window.location.href = "/";
   };
 
+  if (pathname === "/recherche" || pathname?.startsWith("/stage/") || pathname?.startsWith("/checkout/")) {
+    return (
+      <nav className="sticky top-0 z-50 bg-[#1278CC] border-b-0">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex h-20 items-center justify-center">
+            <div className="flex flex-col items-center">
+              <Link href="/" className="flex items-center gap-2">
+                <span className="text-2xl font-extrabold text-white tracking-tight italic">PermisAccéléré</span>
+              </Link>
+              <span className="text-[10px] text-white/80 font-medium tracking-wide">Plateforme n°1 des Permis Accélérés en France</span>
+            </div>
+          </div>
+        </div>
+      </nav>
+    );
+  }
+
   return (
     <nav className="sticky top-0 z-50 bg-[#1278CC] border-b-0">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between">
           <div className="flex flex-col">
-            <a href="/" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
               <span className="text-2xl font-extrabold text-white tracking-tight italic">PermisAccéléré</span>
-            </a>
+            </Link>
             <span className="text-[10px] text-white/80 font-medium tracking-wide">Plateforme n°1 des Permis Accélérés en France</span>
           </div>
 

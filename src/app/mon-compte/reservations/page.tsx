@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { BookingStatus } from "@/lib/supabase/database.types";
 
 export default function StudentReservations() {
   const router = useRouter();
@@ -53,10 +54,11 @@ export default function StudentReservations() {
   }, [router, supabase]);
 
   const cancelBooking = async (bookingId: string) => {
+    const cancelledStatus: BookingStatus = "cancelled";
     setCancellingId(bookingId);
     const { error } = await supabase
       .from("bookings")
-      .update({ status: "cancelled" })
+      .update({ status: cancelledStatus })
       .eq("id", bookingId);
 
     if (!error) {

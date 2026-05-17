@@ -1,10 +1,96 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Search, MapPin, Calendar, Car, ChevronDown } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, MapPin, Calendar, Car, ChevronDown, Check } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
+
+function useOnClickOutside(ref: React.RefObject<HTMLElement | null>, handler: () => void) {
+  useEffect(() => {
+    const listener = (event: MouseEvent | TouchEvent) => {
+      if (!ref.current || ref.current.contains(event.target as Node)) {
+        return;
+      }
+      handler();
+    };
+    document.addEventListener("mousedown", listener);
+    document.addEventListener("touchstart", listener);
+    return () => {
+      document.removeEventListener("mousedown", listener);
+      document.removeEventListener("touchstart", listener);
+    };
+  }, [ref, handler]);
+}
+
+interface CustomSelectProps {
+  label: string;
+  icon: React.ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  options: { label: string; value: string }[];
+  placeholder: string;
+  className?: string;
+  dropdownAlign?: "left" | "right";
+}
+
+function CustomSelect({ label, icon, value, onChange, options, placeholder, className = "", dropdownAlign = "left" }: CustomSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useOnClickOutside(ref, () => setIsOpen(false));
+
+  const selectedOption = options.find((opt) => opt.value === value);
+
+  return (
+    <div 
+      ref={ref}
+      className={`flex-1 flex flex-col px-6 py-2 relative group cursor-pointer hover:bg-gray-50/50 transition-colors ${isOpen ? 'z-50' : 'z-10'} ${className}`}
+      onClick={() => setIsOpen(!isOpen)}
+    >
+      <label className="text-[10px] font-bold uppercase tracking-wider text-[#1278CC] mb-0.5 cursor-pointer">{label}</label>
+      <div className="flex items-center w-full">
+        <div className="text-gray-400 mr-2 group-hover:text-[#1278CC] transition-colors">
+          {icon}
+        </div>
+        <div className="flex-1 text-sm font-semibold text-gray-900 truncate pr-2">
+          {selectedOption ? selectedOption.label : <span className="text-gray-500 font-normal">{placeholder}</span>}
+        </div>
+        <ChevronDown className={`h-4 w-4 text-gray-400 group-hover:text-[#1278CC] transition-transform duration-300 ml-auto flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.98 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className={`absolute top-[110%] w-[calc(100%+2rem)] -ml-4 lg:ml-0 lg:w-auto lg:min-w-[260px] mt-1 bg-white rounded-2xl shadow-[0_20px_40px_-15px_rgba(0,0,0,0.1)] border border-gray-100 py-2 z-50 overflow-hidden ${dropdownAlign === 'right' ? 'lg:right-0 lg:left-auto' : 'left-0'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="max-h-[280px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent pr-1">
+              {options.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => {
+                    onChange(option.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full text-left px-5 py-3 text-sm flex items-center justify-between hover:bg-gray-50 transition-colors
+                    ${value === option.value ? 'bg-[#1278CC]/5 text-[#1278CC] font-bold' : 'text-gray-700 font-medium'}
+                  `}
+                >
+                  <span className="truncate">{option.label}</span>
+                  {value === option.value && <Check className="h-4 w-4 shrink-0 text-[#1278CC] ml-3" />}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export function Hero() {
   const router = useRouter();
@@ -144,12 +230,12 @@ export function Hero() {
   };
 
   return (
-    <section className="relative overflow-hidden bg-[#1278CC] pt-4 pb-0 lg:pt-6 lg:pb-0">
+    <section className="relative overflow-x-hidden z-40 bg-[#1278CC] pt-4 pb-0 lg:pt-6 lg:pb-0">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-8">
           
           {/* Left Column: Text & Search */}
-          <div className="w-full lg:w-[65%] xl:w-[70%] z-10 relative flex flex-col items-start lg:pr-8">
+          <div className="w-full lg:w-[65%] xl:w-[70%] z-50 relative flex flex-col items-start lg:pr-8">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -170,58 +256,44 @@ export function Hero() {
               <div className="bg-white rounded-2xl lg:rounded-full shadow-2xl p-2 lg:p-3 flex flex-col lg:flex-row items-stretch lg:items-center w-full max-w-5xl gap-2 lg:gap-0">
                 
                 {/* Field 1: Lieu du stage */}
-                <div className="flex-1 flex flex-col px-6 py-2 border-b lg:border-b-0 lg:border-r border-gray-100 group cursor-pointer hover:bg-gray-50/50 transition-colors first:rounded-t-2xl lg:first:rounded-l-full">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-[#1278CC] mb-0.5">Lieu du stage</label>
-                  <div className="flex items-center relative">
-                    <MapPin className="h-4 w-4 text-gray-400 mr-2 group-hover:text-[#1278CC] transition-colors" />
-                    <select
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className="w-full bg-transparent border-none focus:ring-0 text-gray-900 font-semibold outline-none text-sm p-0 appearance-none cursor-pointer"
-                    >
-                      <option value="">Sélectionnez...</option>
-                      <option value="ile_de_france">Île de France</option>
-                      <option value="province">Province</option>
-                    </select>
-                    <ChevronDown className="h-3 w-3 text-gray-400 group-hover:text-[#1278CC] transition-colors ml-auto" />
-                  </div>
-                </div>
+                <CustomSelect 
+                  label="Lieu du stage"
+                  icon={<MapPin className="h-4 w-4" />}
+                  value={city}
+                  onChange={setCity}
+                  options={[
+                    { label: "Île de France", value: "ile_de_france" },
+                    { label: "Province", value: "province" }
+                  ]}
+                  placeholder="Sélectionnez..."
+                  className="border-b lg:border-b-0 lg:border-r border-gray-100 first:rounded-t-2xl lg:first:rounded-l-full"
+                />
 
                 {/* Field 2: Date de démarrage */}
-                <div className="flex-1 flex flex-col px-6 py-2 border-b lg:border-b-0 lg:border-r border-gray-100 group cursor-pointer hover:bg-gray-50/50 transition-colors">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-[#1278CC] mb-0.5">Date de démarrage du stage</label>
-                  <div className="flex items-center relative">
-                    <Calendar className="h-4 w-4 text-gray-400 mr-2 group-hover:text-[#1278CC] transition-colors" />
-                    <select 
-                      value={startMonth}
-                      onChange={(e) => setStartMonth(e.target.value)}
-                      className="w-full bg-transparent border-none focus:ring-0 text-gray-900 font-semibold outline-none text-sm p-0 appearance-none cursor-pointer"
-                    >
-                      <option value="">Sélectionnez...</option>
-                      {months.map((month) => (
-                        <option key={month} value={month}>{month}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="h-3 w-3 text-gray-400 group-hover:text-[#1278CC] transition-colors ml-auto" />
-                  </div>
-                </div>
+                <CustomSelect 
+                  label="Date de démarrage du stage"
+                  icon={<Calendar className="h-4 w-4" />}
+                  value={startMonth}
+                  onChange={setStartMonth}
+                  options={months.map(m => ({ label: m, value: m }))}
+                  placeholder="Sélectionnez..."
+                  className="border-b lg:border-b-0 lg:border-r border-gray-100"
+                />
 
                 {/* Field 3: Boîte de vitesse */}
-                <div className="flex-1 flex flex-col px-6 py-2 group cursor-pointer hover:bg-gray-50/50 transition-colors lg:rounded-r-none">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-[#1278CC] mb-0.5">Boîte de vitesse</label>
-                  <div className="flex items-center relative">
-                    <Car className="h-4 w-4 text-gray-400 mr-2 group-hover:text-[#1278CC] transition-colors" />
-                    <select 
-                      value={transmission}
-                      onChange={(e) => setTransmission(e.target.value)}
-                      className="w-full bg-transparent border-none focus:ring-0 text-gray-900 font-semibold outline-none text-sm p-0 appearance-none cursor-pointer"
-                    >
-                      <option>Boîte manuelle</option>
-                      <option>Boîte automatique</option>
-                    </select>
-                    <ChevronDown className="h-3 w-3 text-gray-400 group-hover:text-[#1278CC] transition-colors ml-auto" />
-                  </div>
-                </div>
+                <CustomSelect 
+                  label="Boîte de vitesse"
+                  icon={<Car className="h-4 w-4" />}
+                  value={transmission}
+                  onChange={setTransmission}
+                  options={[
+                    { label: "Boîte manuelle", value: "Boîte manuelle" },
+                    { label: "Boîte automatique", value: "Boîte automatique" }
+                  ]}
+                  placeholder="Sélectionnez..."
+                  className="lg:rounded-r-none"
+                  dropdownAlign="right"
+                />
 
                 {/* Submit Button */}
                 <button 

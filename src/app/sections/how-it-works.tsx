@@ -55,6 +55,7 @@ export function HowItWorks() {
                   src={item.image}
                   alt={item.title}
                   fill
+                  sizes="72px"
                   className="object-contain"
                 />
               </div>

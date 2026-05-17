@@ -1,49 +1,40 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search,
+  useState,
+  useEffect,
+  useCallback,
+  Suspense,
+  useMemo,
+  useRef,
+  type ReactNode,
+  type RefObject,
+  type CSSProperties,
+} from "react";
+import { createPortal } from "react-dom";
+import {
   MapPin,
   Calendar,
   Car,
-  Euro,
-  Users,
-  Star,
-  ArrowRight,
   Loader2,
-  Filter,
-  X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
   Clock,
-  Phone,
-  Mail,
-  CheckCircle2,
-  Building2,
+  Check,
+  BookOpen,
+  Hash,
+  Layers,
 } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { Database } from "@/lib/supabase/database.types";
 import { useSearchParams } from "next/navigation";
 
-// City images mapping
-const cityImages: Record<string, string> = {
-  "Paris": "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=400&h=300&fit=crop",
-  "Marseille": "https://images.unsplash.com/photo-1565881606991-789a9d8d6e4c?w=400&h=300&fit=crop",
-  "Lyon": "https://images.unsplash.com/photo-1568565681761-576e5a463e96?w=400&h=300&fit=crop",
-  "Toulouse": "https://images.unsplash.com/photo-1599739367257-7875166b7195?w=400&h=300&fit=crop",
-  "Nice": "https://images.unsplash.com/photo-1533986892364-4f43219a878f?w=400&h=300&fit=crop",
-  "Nantes": "https://images.unsplash.com/photo-1566834948647-18e9584b6c8d?w=400&h=300&fit=crop",
-  "Strasbourg": "https://images.unsplash.com/photo-1478827536114-da7b3a4d4b21?w=400&h=300&fit=crop",
-  "Montpellier": "https://images.unsplash.com/photo-1565626424178-c0e0f53c4f2e?w=400&h=300&fit=crop",
-  "Bordeaux": "https://images.unsplash.com/photo-1573662996479-981c8728cea5?w=400&h=300&fit=crop",
-  "Lille": "https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?w=400&h=300&fit=crop",
-};
-
-const getCityImage = (city: string): string => {
-  // Return city image if exists, otherwise return a generic city image
-  return cityImages[city] || "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=400&h=300&fit=crop";
-};
+const BRAND_BLUE = "#1278CC";
+const BRAND_BLUE_HOVER = "#0A5CA6";
+const GREEN_BADGE = "#5FA82B";
+const BEIGE_BG = "#F8F6F2";
+const BEIGE_PANEL = "#EDE8E0";
 
 type StageResult = {
   stage_id: string;
@@ -58,101 +49,476 @@ type StageResult = {
   available_spots: number;
   auto_ecole_id: string;
   auto_ecole_name: string;
-  auto_ecole_city: string;
+  auto_ecole_region: string;
   auto_ecole_rating: number;
+  auto_ecole_city?: string;
+  auto_ecole_address?: string;
+  auto_ecole_postal_code?: string;
 };
 
-const licenseTypes = [
-  { value: "B", label: "Permis B (Voiture)", icon: "🚗" },
-  { value: "A1", label: "Permis A1 (125cc)", icon: "🏍️" },
-  { value: "A2", label: "Permis A2 (Moto)", icon: "🏍️" },
-  { value: "A", label: "Permis A (Gros cube)", icon: "🏍️" },
-  { value: "C", label: "Permis C (Poids lourd)", icon: "🚛" },
+const OFFER_INCLUSIONS: Record<string, string[]> = {
+  "Maxi stage 35H": [
+    "31 heures de conduite",
+    "Durée du stage : 15 jours",
+    "Place d'examen sous 10 jours(1)",
+    "1 moniteur unique",
+    "1 date d'examen 100% garantie",
+    "Délai : 3 à 10 jours après le stage",
+  ],
+  "Maxi stage 30H": [
+    "26 heures de conduite",
+    "Durée du stage : 8 jours",
+    "Place d'examen sous 10 jours(1)",
+    "1 moniteur unique",
+    "1 date d'examen 100% garantie",
+    "Délai : 3 à 10 jours après le stage",
+  ],
+  "Mini stage 10H": [
+    "10 heures de conduite",
+    "Durée du stage : 3 à 5 jours",
+    "1 moniteur unique",
+    "1 date d'examen 100% garantie",
+    "Délai : 3 à 10 jours après le stage",
+  ],
+  "Représentation 6H": [
+    "6 heures de conduite",
+    "Durée du stage : 1 à 3 jours",
+    "1 moniteur unique",
+    "1 date d'examen 100% garantie",
+    "Délai : 3 à 10 jours après le stage",
+  ],
+  "Stage passerelle": [
+    "7 heures de conduite",
+    "Durée : 1 journée",
+    "1 moniteur unique",
+    "Pas d'examen à repasser",
+    "Édition du nouveau permis de conduire",
+  ],
+  "Conduite accompagnée 22H": [
+    "20 heures de conduite",
+    "Durée du stage : 5 jours",
+    "1 moniteur unique",
+    "2 RDV pédagogiques",
+    "1 date d'examen 100% garantie",
+  ],
+  "Conduite accompagnée 13H": [
+    "13 heures de conduite",
+    "Durée du stage : 5 jours",
+    "1 moniteur unique",
+    "2 RDV pédagogiques",
+    "1 date d'examen 100% garantie",
+  ],
+};
+
+const DEFAULT_INCLUSIONS = [
+  "31 heures de conduite",
+  "Durée du stage : 15 jours",
+  "Place d'examen sous 10 jours(1)",
+  "1 moniteur unique",
+  "1 date d'examen 100% garantie",
+  "Délai : 3 à 10 jours après le stage",
 ];
 
-const priceRanges = [
-  { min: 0, max: 500, label: "Moins de 500€" },
-  { min: 500, max: 800, label: "500€ - 800€" },
-  { min: 800, max: 1200, label: "800€ - 1200€" },
-  { min: 1200, max: 999999, label: "Plus de 1200€" },
+const METRO_LINES = [
+  "République - Métro 5 & 3 & 8 & 9 & 11",
+  "Nation - Métro 1 & 2 & 6 & 9",
+  "Châtelet - Métro 1 & 4 & 7 & 11 & 14",
+  "Gare du Nord - RER B & D & E",
+  "Montparnasse - Métro 4 & 6 & 12 & 13",
+  "Bastille - Métro 1 & 5 & 8",
 ];
+
+function formatMonthKey(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+function parseMonthKey(key: string) {
+  const [y, m] = key.split("-").map(Number);
+  return { year: y, month: m };
+}
+
+function monthKeyToLabel(key: string) {
+  const { year, month } = parseMonthKey(key);
+  const d = new Date(year, month - 1, 1);
+  const label = d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function shiftMonthKey(key: string, delta: number) {
+  const { year, month } = parseMonthKey(key);
+  const d = new Date(year, month - 1 + delta, 1);
+  return formatMonthKey(d.getFullYear(), d.getMonth() + 1);
+}
+
+function formatStageDateRange(startStr: string, endStr: string) {
+  const start = new Date(startStr);
+  const end = new Date(endStr);
+  const fmt = (d: Date) =>
+    d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
+  return `${fmt(start)} → ${fmt(end)}`;
+}
+
+function formatPrice(price: number) {
+  return (
+    price.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) +
+    "€"
+  );
+}
+
+function daysUntil(dateStr: string) {
+  const target = new Date(dateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+  const diff = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diff <= 0) return "Bientôt";
+  if (diff === 1) return "Demain";
+  return `Dans ${diff} jours`;
+}
+
+function getDrivingHours(stageType: string): string {
+  const match = OFFER_INCLUSIONS[stageType]?.[0];
+  if (match) return match;
+  return "31 heures de conduite";
+}
+
+function displayCity(city: string) {
+  if (!city) return "Île-de-France";
+  if (city === "ile_de_france") return "Île-de-France";
+  if (city === "province") return "Province";
+  return city.charAt(0).toUpperCase() + city.slice(1);
+}
+
+const CITY_OPTIONS = [
+  { value: "ile_de_france", label: "Île-de-France" },
+  { value: "province", label: "Province" },
+] as const;
+
+const TRANSMISSION_OPTIONS = [
+  { value: "manuelle", label: "Boîte manuelle" },
+  { value: "automatique", label: "Boîte automatique" },
+] as const;
+
+const STAGE_HOURS_OPTIONS = [
+  { value: "4H", label: "4H" },
+  { value: "6H", label: "6H" },
+  { value: "10H", label: "10H" },
+] as const;
+
+function matchesStageHours(stage: StageResult, hours: string) {
+  const needle = hours.toLowerCase();
+  const hay = `${stage.stage_title} ${stage.stage_description ?? ""}`.toLowerCase();
+  return hay.includes(needle);
+}
+
+function hoursFromUrlType(type: string): string {
+  const match = type.match(/\b(4|6|10)\s*h\b/i);
+  return match ? `${match[1]}H` : "";
+}
+
+type DropdownOption = { value: string; label: string };
+
+function SearchDropdown({
+  label,
+  icon,
+  value,
+  options,
+  placeholder,
+  onChange,
+  isOpen,
+  onToggle,
+  containerRef,
+  minWidthClass,
+}: {
+  label: string;
+  icon: ReactNode;
+  value: string;
+  options: DropdownOption[];
+  placeholder: string;
+  onChange: (value: string) => void;
+  isOpen: boolean;
+  onToggle: () => void;
+  containerRef: RefObject<HTMLDivElement | null>;
+  minWidthClass?: string;
+}) {
+  const selected = options.find((o) => o.value === value);
+  const isWide = Boolean(minWidthClass);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
+
+  useEffect(() => {
+    if (!isOpen || !buttonRef.current) return;
+
+    const updatePosition = () => {
+      if (!buttonRef.current) return;
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuStyle({
+        position: "fixed",
+        top: rect.bottom + 4,
+        left: rect.left,
+        minWidth: rect.width,
+        zIndex: 9999,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [isOpen]);
+
+  const menu =
+    isOpen &&
+    typeof document !== "undefined" &&
+    createPortal(
+      <div
+        data-dropdown-menu="true"
+        style={menuStyle}
+        className={`bg-white rounded-lg border border-gray-200 shadow-lg py-1 ${
+          options.length > 6 ? "max-h-64 overflow-y-auto" : ""
+        }`}
+      >
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={`block w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 whitespace-nowrap ${
+              value === opt.value ? "font-semibold text-gray-900" : "text-gray-700"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>,
+      document.body
+    );
+
+  return (
+    <div
+      className={`relative shrink-0 ${minWidthClass ?? "w-fit"}`}
+      ref={containerRef}
+    >
+      <label className="block text-[11px] font-semibold text-gray-500 mb-1 whitespace-nowrap">
+        {label}
+      </label>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={onToggle}
+        className={`inline-flex items-center gap-1.5 bg-white rounded-lg border border-gray-200/80 px-2.5 py-2 text-left whitespace-nowrap ${
+          isWide ? "w-full justify-between" : ""
+        }`}
+      >
+        {icon}
+        <span
+          className={`text-sm ${
+            selected ? "font-medium text-gray-900" : "font-normal text-gray-500"
+          }`}
+        >
+          {selected ? selected.label : placeholder}
+        </span>
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+      {menu}
+    </div>
+  );
+}
 
 function SearchContent() {
   const supabase = createClient();
   const searchParams = useSearchParams();
   const [stages, setStages] = useState<StageResult[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showFilters, setShowFilters] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const cityDropdownRef = useRef<HTMLDivElement>(null);
+  const monthDropdownRef = useRef<HTMLDivElement>(null);
+  const transmissionDropdownRef = useRef<HTMLDivElement>(null);
+  const stageHoursDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Filter states - initialize from URL params
-  const [city, setCity] = useState(searchParams.get("city") || "");
+  const [city, setCity] = useState(searchParams.get("city") || "ile_de_france");
   const [transmission, setTransmission] = useState("manuelle");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
+  const [stageType, setStageType] = useState("");
+  const [stageHours, setStageHours] = useState("");
 
-  // Read URL params on mount
+  const monthOptions = useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => {
+      const d = new Date();
+      d.setDate(1);
+      d.setMonth(d.getMonth() + i);
+      const key = formatMonthKey(d.getFullYear(), d.getMonth() + 1);
+      const label = monthKeyToLabel(key);
+      return { key, label };
+    });
+  }, []);
+
   useEffect(() => {
     const urlCity = searchParams.get("city");
     const urlMonth = searchParams.get("month");
     const urlTransmission = searchParams.get("transmission");
-    
+    const urlType = searchParams.get("type");
+
     if (urlCity) setCity(urlCity);
     if (urlTransmission) {
-      setTransmission(urlTransmission.toLowerCase().includes("auto") ? "automatique" : "manuelle");
+      setTransmission(
+        urlTransmission.toLowerCase().includes("auto") ? "automatique" : "manuelle"
+      );
     }
-    // Month would need parsing from string like "Avril 2026" to YYYY-MM
+    if (urlType) {
+      const decoded = decodeURIComponent(urlType);
+      setStageType(decoded);
+      const fromUrl = hoursFromUrlType(decoded);
+      if (fromUrl) setStageHours(fromUrl);
+    }
+
+    if (urlMonth) {
+      const monthMap: Record<string, string> = {
+        janvier: "01",
+        février: "02",
+        fevrier: "02",
+        mars: "03",
+        avril: "04",
+        mai: "05",
+        juin: "06",
+        juillet: "07",
+        août: "08",
+        aout: "08",
+        septembre: "09",
+        octobre: "10",
+        novembre: "11",
+        décembre: "12",
+        decembre: "12",
+      };
+      const parts = decodeURIComponent(urlMonth).trim().split(" ");
+      if (parts.length === 2) {
+        const monthStr = parts[0].toLowerCase();
+        const yearStr = parts[1];
+        if (monthMap[monthStr]) {
+          setSelectedMonth(`${yearStr}-${monthMap[monthStr]}`);
+        }
+      }
+    }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!selectedMonth && monthOptions.length > 0) {
+      setSelectedMonth(monthOptions[0].key);
+    }
+  }, [selectedMonth, monthOptions]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const refs = [cityDropdownRef, monthDropdownRef, transmissionDropdownRef, stageHoursDropdownRef];
+      const clickedInside = refs.some((ref) => ref.current?.contains(target));
+      
+      // Also check if the click is inside a dropdown menu (portaled element)
+      const menuElement = document.querySelector('[data-dropdown-menu="true"]');
+      const isInsideMenu = menuElement?.contains(target) ?? false;
+      
+      if (!clickedInside && !isInsideMenu) setOpenDropdown(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const enrichStages = useCallback(
+    async (raw: StageResult[]) => {
+      if (!raw.length) return raw;
+      const ids = [...new Set(raw.map((s) => s.auto_ecole_id))];
+      const { data: schools } = await supabase
+        .from("auto_ecoles")
+        .select("id, city, address, postal_code")
+        .in("id", ids);
+
+      const byId = new Map((schools || []).map((s) => [s.id, s]));
+      return raw.map((stage) => {
+        const school = byId.get(stage.auto_ecole_id);
+        return {
+          ...stage,
+          auto_ecole_city: school?.city || undefined,
+          auto_ecole_address: school?.address || undefined,
+          auto_ecole_postal_code: school?.postal_code || undefined,
+        };
+      });
+    },
+    [supabase]
+  );
 
   const searchStages = useCallback(async () => {
     setLoading(true);
 
     try {
-      // Calculate month date range if selected
       let monthStart: string | null = null;
       let monthEnd: string | null = null;
-      
+
       if (selectedMonth) {
-        const [year, month] = selectedMonth.split('-');
+        const [year, month] = selectedMonth.split("-");
         monthStart = `${year}-${month}-01`;
-        // Calculate last day of month
         const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
         monthEnd = `${year}-${month}-${lastDay}`;
       }
 
-      // Using the RPC function we created in the SQL setup
+      let formattedRegion = city || null;
+      if (formattedRegion) {
+        const lowerRegion = formattedRegion.toLowerCase();
+        if (lowerRegion.includes("ile") || lowerRegion.includes("île")) {
+          formattedRegion = "ILE DE FRANCE";
+        } else if (lowerRegion.includes("province")) {
+          formattedRegion = "PROVINCE";
+        }
+      }
+
       const { data, error } = await supabase.rpc("search_stages", {
-        search_city: city || null,
-        search_license_type: null, // We filter by transmission separately
+        search_region: formattedRegion,
+        search_stage_type: stageType || null,
+        search_license_type: null,
         search_start_date: monthStart,
         search_end_date: monthEnd,
         max_price: maxPrice,
       });
 
-      // Filter by transmission on client side (only if explicitly mentioned in stage data)
-      let filteredData = data || [];
-      if (transmission && filteredData.length > 0) {
-        const transmissionKeyword = transmission === "automatique" ? "automatique" : "manuelle";
-        const oppositeKeyword = transmission === "automatique" ? "manuelle" : "automatique";
+      let filteredData: StageResult[] = data || [];
 
-        // Only filter if stages have transmission info in their data
-        // Keep stages that mention the requested transmission OR don't mention either
-        filteredData = filteredData.filter((stage: StageResult) => {
+      if (transmission && filteredData.length > 0) {
+        const transmissionKeyword =
+          transmission === "automatique" ? "automatique" : "manuelle";
+        const oppositeKeyword =
+          transmission === "automatique" ? "manuelle" : "automatique";
+        filteredData = filteredData.filter((stage) => {
           const desc = (stage.stage_description || "").toLowerCase();
           const title = (stage.stage_title || "").toLowerCase();
-          const hasRequested = desc.includes(transmissionKeyword) || title.includes(transmissionKeyword);
-          const hasOpposite = desc.includes(oppositeKeyword) || title.includes(oppositeKeyword);
-
-          // Show if it has requested transmission, or doesn't mention either (assume manual default)
-          return hasRequested || (!hasRequested && !hasOpposite && transmission === "manuelle");
+          const hasRequested =
+            desc.includes(transmissionKeyword) || title.includes(transmissionKeyword);
+          const hasOpposite =
+            desc.includes(oppositeKeyword) || title.includes(oppositeKeyword);
+          return (
+            hasRequested ||
+            (!hasRequested && !hasOpposite && transmission === "manuelle")
+          );
         });
       }
 
+      if (stageHours && filteredData.length > 0) {
+        filteredData = filteredData.filter((stage) => matchesStageHours(stage, stageHours));
+      } else if (stageType && filteredData.length > 0) {
+        filteredData = filteredData.filter((stage) =>
+          (stage.stage_title || "").toLowerCase().includes(stageType.toLowerCase())
+        );
+      }
+
       if (error) {
-        console.error("Search error:", error);
-        // Fallback to direct table query if RPC fails
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("stages")
-          .select(`
+          .select(
+            `
             id,
             title,
             description,
@@ -165,30 +531,88 @@ function SearchContent() {
             auto_ecole:auto_ecole_id (
               id,
               name,
-              city
+              region,
+              city,
+              address,
+              postal_code
             )
-          `)
+          `
+          )
           .eq("is_available", true)
           .eq("status", "active");
 
         if (fallbackError) throw fallbackError;
-        
-        // Filter fallback data by transmission (same logic as main filter)
-        let filteredFallback = fallbackData || [];
+
+        type FallbackRow = {
+          id: string;
+          title: string;
+          description: string | null;
+          license_type: string;
+          start_date: string;
+          end_date: string;
+          price: number;
+          max_students: number;
+          enrolled_students: number;
+          auto_ecole: {
+            id: string;
+            name: string;
+            region: string;
+            city: string;
+            address: string;
+            postal_code: string;
+          };
+        };
+
+        let filteredFallback =
+          (fallbackData as unknown as FallbackRow[] | null) || [];
+
+        if (formattedRegion) {
+          filteredFallback = filteredFallback.filter(
+            (stage) => stage.auto_ecole?.region === formattedRegion
+          );
+        }
+
+        if (monthStart && monthEnd) {
+          filteredFallback = filteredFallback.filter((stage) => {
+            return stage.start_date >= monthStart! && stage.start_date <= monthEnd!;
+          });
+        }
+
         if (transmission) {
           const keyword = transmission === "automatique" ? "automatique" : "manuelle";
-          const oppositeKeyword = transmission === "automatique" ? "manuelle" : "automatique";
-          filteredFallback = filteredFallback.filter((stage: any) => {
+          const oppositeKeyword =
+            transmission === "automatique" ? "manuelle" : "automatique";
+          filteredFallback = filteredFallback.filter((stage) => {
             const desc = (stage.description || "").toLowerCase();
             const title = (stage.title || "").toLowerCase();
             const hasRequested = desc.includes(keyword) || title.includes(keyword);
-            const hasOpposite = desc.includes(oppositeKeyword) || title.includes(oppositeKeyword);
-            return hasRequested || (!hasRequested && !hasOpposite && transmission === "manuelle");
+            const hasOpposite =
+              desc.includes(oppositeKeyword) || title.includes(oppositeKeyword);
+            return (
+              hasRequested ||
+              (!hasRequested && !hasOpposite && transmission === "manuelle")
+            );
           });
         }
-        
-        // Transform fallback data
-        const transformed = filteredFallback?.map((stage: any) => ({
+
+        if (stageHours && filteredFallback.length > 0) {
+          filteredFallback = filteredFallback.filter((stage) =>
+            matchesStageHours(
+              {
+                stage_id: stage.id,
+                stage_title: stage.title,
+                stage_description: stage.description,
+              } as StageResult,
+              stageHours
+            )
+          );
+        } else if (stageType && filteredFallback.length > 0) {
+          filteredFallback = filteredFallback.filter((stage) =>
+            (stage.title || "").toLowerCase().includes(stageType.toLowerCase())
+          );
+        }
+
+        const transformed: StageResult[] = filteredFallback.map((stage) => ({
           stage_id: stage.id,
           stage_title: stage.title,
           stage_description: stage.description,
@@ -201,379 +625,351 @@ function SearchContent() {
           available_spots: stage.max_students - stage.enrolled_students,
           auto_ecole_id: stage.auto_ecole.id,
           auto_ecole_name: stage.auto_ecole.name,
-          auto_ecole_city: stage.auto_ecole.city,
+          auto_ecole_region: stage.auto_ecole.region,
           auto_ecole_rating: 0,
-        })) || [];
-        
+          auto_ecole_city: stage.auto_ecole.city,
+          auto_ecole_address: stage.auto_ecole.address,
+          auto_ecole_postal_code: stage.auto_ecole.postal_code,
+        }));
+
         setStages(transformed);
       } else {
-        setStages(filteredData);
+        setStages(await enrichStages(filteredData));
       }
     } catch (error) {
       console.error("Error fetching stages:", error);
     } finally {
       setLoading(false);
     }
-  }, [supabase, city, transmission, selectedMonth, maxPrice]);
+  }, [
+    supabase,
+    city,
+    transmission,
+    selectedMonth,
+    maxPrice,
+    stageType,
+    stageHours,
+    enrichStages,
+  ]);
 
-  // Initial load
   useEffect(() => {
     searchStages();
   }, [searchStages]);
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("fr-FR", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-    });
-  };
+  const offerKey =
+    stageHours === "10H"
+      ? "Mini stage 10H"
+      : stageHours === "6H"
+        ? "Représentation 6H"
+        : stageType;
 
-  const calculateDuration = (start: string, end: string) => {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+  const offerInclusions = offerKey
+    ? OFFER_INCLUSIONS[offerKey] || DEFAULT_INCLUSIONS
+    : DEFAULT_INCLUSIONS;
+
+  const transmissionLabel =
+    TRANSMISSION_OPTIONS.find((o) => o.value === transmission)?.label ?? "Boîte manuelle";
+
+  const visibleMonthLabel = selectedMonth ? monthKeyToLabel(selectedMonth) : "";
+
+  const toggleDropdown = (id: string) => {
+    setOpenDropdown((current) => (current === id ? null : id));
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Search Hero */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-8"
-          >
-            <h1 className="text-3xl sm:text-4xl font-black text-white mb-4">
-              Trouvez votre stage de conduite intensif
-            </h1>
-            <p className="text-blue-100 text-lg max-w-2xl mx-auto">
-              Des stages accélérés dans toute la France. Obtenez votre permis en 7 jours !
-            </p>
-          </motion.div>
+    <div className="min-h-screen pt-16 pb-20" style={{ backgroundColor: BEIGE_BG }}>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Progress */}
+        <div className="flex flex-col items-center justify-center mb-10 pt-4">
+          <span className="text-gray-400 text-sm mb-4">Dates</span>
+          <div className="flex gap-2 sm:gap-4 items-center">
+            <div className="w-8 sm:w-12 h-1 rounded-full" style={{ backgroundColor: BRAND_BLUE }} />
+            <div className="w-8 sm:w-12 h-1 rounded-full" style={{ backgroundColor: BRAND_BLUE }} />
+            <div className="w-8 sm:w-12 h-1 rounded-full" style={{ backgroundColor: BRAND_BLUE }} />
+            <div className="w-8 sm:w-12 h-1 bg-gray-200 rounded-full" />
+            <div className="w-8 sm:w-12 h-1 bg-gray-200 rounded-full" />
+            <div className="w-8 sm:w-12 h-1 bg-gray-200 rounded-full" />
+          </div>
+        </div>
 
-          {/* Search Bar */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white rounded-2xl shadow-xl p-4 sm:p-6"
+        {/* Header */}
+        <div className="text-center mb-10">
+          <h1
+            className="text-[28px] sm:text-[36px] font-semibold text-gray-900 mb-3 tracking-tight"
+            style={{ fontFamily: "var(--ds-nb---font--primary)" }}
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* City */}
-              <div className="relative">
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">
-                  Ville
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="Paris, Lyon..."
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
-                  />
-                </div>
+            Quand souhaitez-vous faire votre stage ?
+          </h1>
+        </div>
+
+        {/* Search bar */}
+        <div
+          className="rounded-xl px-4 py-3 mb-8 flex flex-nowrap items-end gap-x-3 overflow-visible"
+          style={{ backgroundColor: BEIGE_PANEL }}
+        >
+          <SearchDropdown
+            label="Lieu du stage"
+            minWidthClass="min-w-[16rem]"
+            icon={<MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
+            value={city}
+            options={[...CITY_OPTIONS]}
+            placeholder="Sélectionnez..."
+            onChange={(value) => {
+              setCity(value);
+              setOpenDropdown(null);
+            }}
+            isOpen={openDropdown === "city"}
+            onToggle={() => toggleDropdown("city")}
+            containerRef={cityDropdownRef}
+          />
+
+          <SearchDropdown
+            label="Date de démarrage"
+            minWidthClass="min-w-[13.5rem]"
+            icon={<Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
+            value={selectedMonth}
+            options={monthOptions.map((o) => ({ value: o.key, label: o.label }))}
+            placeholder="Sélectionnez..."
+            onChange={(key) => {
+              setSelectedMonth(key);
+              setOpenDropdown(null);
+            }}
+            isOpen={openDropdown === "month"}
+            onToggle={() => toggleDropdown("month")}
+            containerRef={monthDropdownRef}
+          />
+
+          <SearchDropdown
+            label="Boîte de vitesse"
+            minWidthClass="min-w-[13.5rem]"
+            icon={<Car className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
+            value={transmission}
+            options={[...TRANSMISSION_OPTIONS]}
+            placeholder="Sélectionnez..."
+            onChange={(value) => {
+              setTransmission(value);
+              setOpenDropdown(null);
+            }}
+            isOpen={openDropdown === "transmission"}
+            onToggle={() => toggleDropdown("transmission")}
+            containerRef={transmissionDropdownRef}
+          />
+
+          <SearchDropdown
+            label="Type de stage"
+            minWidthClass="min-w-[9rem]"
+            icon={<Layers className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
+            value={stageHours}
+            options={[...STAGE_HOURS_OPTIONS]}
+            placeholder="Sélectionnez..."
+            onChange={(value) => {
+              setStageHours(value);
+              setOpenDropdown(null);
+            }}
+            isOpen={openDropdown === "stageHours"}
+            onToggle={() => toggleDropdown("stageHours")}
+            containerRef={stageHoursDropdownRef}
+          />
+
+          <button
+            type="button"
+            onClick={() => searchStages()}
+            className="shrink-0 px-4 py-2 rounded-lg text-white text-sm font-semibold whitespace-nowrap transition-colors"
+            style={{ backgroundColor: BRAND_BLUE }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = BRAND_BLUE_HOVER;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = BRAND_BLUE;
+            }}
+          >
+            Rechercher
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center items-center py-24">
+            <Loader2 className="w-8 h-8 animate-spin" style={{ color: BRAND_BLUE }} />
+          </div>
+        ) : (
+          <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+            {/* Sidebar */}
+            <aside className="w-full lg:w-[280px] shrink-0 space-y-4">
+              <div
+                className="rounded-xl p-5"
+                style={{ backgroundColor: BEIGE_PANEL }}
+              >
+                <h2 className="text-sm font-bold text-gray-900 mb-4">
+                  Inclus dans l&apos;offre :
+                </h2>
+                <ul className="space-y-2.5">
+                  {offerInclusions.map((item, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-[13px] text-gray-700">
+                      <Check className="w-4 h-4 text-gray-600 shrink-0 mt-0.5" strokeWidth={2.5} />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
-              {/* Transmission (Boite) */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">
-                  Boîte
-                </label>
-                <div className="relative">
-                  <Car className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <select
-                    value={transmission}
-                    onChange={(e) => setTransmission(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
-                  >
-                    <option value="manuelle">Boîte manuelle</option>
-                    <option value="automatique">Boîte automatique</option>
-                  </select>
+              <div className="bg-white rounded-xl border border-gray-200/80 p-4 flex gap-3">
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-bold text-white"
+                  style={{ backgroundColor: "#1278CC" }}
+                >
+                  CPF
                 </div>
+                <p className="text-[12px] text-gray-600 leading-snug">
+                  Financement avec votre CPF (demandeurs d&apos;emploi)
+                </p>
               </div>
 
-              {/* Mois */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wider">
-                  Mois
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <select
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
-                  >
-                    <option value="">Tous les mois</option>
-                    {Array.from({ length: 12 }, (_, i) => {
-                      const d = new Date();
-                      d.setMonth(d.getMonth() + i);
-                      const value = d.toISOString().slice(0, 7);
-                      const label = d.toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+              <div className="bg-white rounded-xl border border-gray-200/80 p-4 flex gap-3">
+                <div
+                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                  style={{ backgroundColor: "#E91E8C" }}
+                >
+                  4x
+                </div>
+                <p className="text-[12px] text-gray-600 leading-snug">
+                  Paiement en 4x sans frais possible
+                </p>
+              </div>
+            </aside>
+
+            {/* Results */}
+            <main className="flex-1 min-w-0">
+              {stages.length === 0 ? (
+                <div className="text-center py-16 bg-white rounded-xl border border-gray-200/80">
+                  <p className="text-gray-500">Aucun stage trouvé pour ces critères.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+                    <div>
+                      <p className="text-[13px] text-gray-500 mb-1">
+                        {stages.length} stage{stages.length > 1 ? "s" : ""} disponible
+                        {stages.length > 1 ? "s" : ""}
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                          {visibleMonthLabel}
+                        </h2>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              selectedMonth && setSelectedMonth(shiftMonthKey(selectedMonth, -1))
+                            }
+                            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+                            aria-label="Mois précédent"
+                          >
+                            <ChevronLeft className="w-4 h-4 text-gray-700" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              selectedMonth && setSelectedMonth(shiftMonthKey(selectedMonth, 1))
+                            }
+                            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
+                            aria-label="Mois suivant"
+                          >
+                            <ChevronRight className="w-4 h-4 text-gray-700" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-4">
+                    {stages.map((stage, index) => {
+                      const locationCity =
+                        stage.auto_ecole_city || displayCity(city);
+                      const metroLine =
+                        stage.auto_ecole_address ||
+                        METRO_LINES[index % METRO_LINES.length];
+                      const postalCode =
+                        stage.auto_ecole_postal_code ||
+                        (stage.auto_ecole_region === "ILE DE FRANCE"
+                          ? String(75000 + (index % 20) * 100)
+                          : String(30000 + (index % 50) * 1000));
+
                       return (
-                        <option key={value} value={value}>
-                          {label.charAt(0).toUpperCase() + label.slice(1)}
-                        </option>
+                        <li
+                          key={stage.stage_id}
+                          className="bg-white rounded-xl border border-gray-200/90 overflow-hidden flex flex-col sm:flex-row"
+                        >
+                          {/* Left: details */}
+                          <div className="flex-1 p-5 sm:p-6 sm:border-r border-gray-200/90">
+                            <p className="text-[17px] sm:text-[18px] font-bold text-gray-900 mb-4">
+                              {formatStageDateRange(stage.start_date, stage.end_date)}
+                            </p>
+
+                            <ul className="space-y-2 mb-5">
+                              <li className="flex items-center gap-2.5 text-[13px] text-gray-700">
+                                <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
+                                {locationCity}
+                              </li>
+                              <li className="flex items-start gap-2.5 text-[13px] text-gray-700">
+                                <BookOpen className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+                                <span className="line-clamp-2">{metroLine}</span>
+                              </li>
+                              <li className="flex items-center gap-2.5 text-[13px] text-gray-700">
+                                <Hash className="w-4 h-4 text-gray-400 shrink-0" />
+                                {postalCode}
+                              </li>
+                              <li className="flex items-center gap-2.5 text-[13px] text-gray-700">
+                                <Car className="w-4 h-4 text-gray-400 shrink-0" />
+                                {transmissionLabel}
+                              </li>
+                              <li className="flex items-center gap-2.5 text-[13px] text-gray-700">
+                                <Clock className="w-4 h-4 text-gray-400 shrink-0" />
+                                {stageHours
+                                  ? `${stageHours.replace("H", "")} heures de conduite`
+                                  : getDrivingHours(offerKey)}
+                              </li>
+                            </ul>
+
+                            <p className="text-[12px] text-gray-400">
+                              {daysUntil(stage.start_date)}
+                            </p>
+                          </div>
+
+                          {/* Right: price & CTA */}
+                          <div className="sm:w-[200px] md:w-[220px] shrink-0 p-5 sm:p-6 flex flex-col items-center justify-center border-t sm:border-t-0 border-gray-200/90 bg-[#fafafa]/50">
+                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
+                              Dès
+                            </span>
+                            <p className="text-[22px] sm:text-[24px] font-bold text-gray-900 mb-3">
+                              {formatPrice(stage.price)}
+                            </p>
+                            <span
+                              className="text-[10px] font-bold text-white uppercase tracking-wide px-3 py-1 rounded mb-4"
+                              style={{ backgroundColor: GREEN_BADGE }}
+                            >
+                              4x sans frais
+                            </span>
+                            <Link
+                              href={`/stage/${stage.stage_id}`}
+                              className="w-full text-center py-2.5 rounded-lg text-white text-[13px] font-semibold transition-colors"
+                              style={{ backgroundColor: BRAND_BLUE }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = BRAND_BLUE_HOVER;
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = BRAND_BLUE;
+                              }}
+                            >
+                              RESERVER
+                            </Link>
+                          </div>
+                        </li>
                       );
                     })}
-                  </select>
-                </div>
-              </div>
-
-              {/* Search Button */}
-              <div className="flex items-end">
-                <button
-                  onClick={searchStages}
-                  disabled={loading}
-                  className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/20 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
-                >
-                  {loading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      <Search className="w-5 h-5" />
-                      Rechercher
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Filter Toggle */}
-            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-blue-600 transition-colors"
-              >
-                <Filter className="w-4 h-4" />
-                {showFilters ? "Masquer les filtres" : "Plus de filtres"}
-              </button>
-              <span className="text-sm text-gray-500">
-                {stages.length} stage{stages.length > 1 ? "s" : ""} trouvé
-                {stages.length > 1 ? "s" : ""}
-              </span>
-            </div>
-
-            {/* Additional Filters */}
-            <AnimatePresence>
-              {showFilters && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="pt-4 mt-4 border-t border-gray-100">
-                    <label className="block text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wider">
-                      Budget maximum
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {priceRanges.map((range) => (
-                        <button
-                          key={range.label}
-                          onClick={() => setMaxPrice(maxPrice === range.max ? null : range.max)}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                            maxPrice === range.max
-                              ? "bg-blue-600 text-white"
-                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                          }`}
-                        >
-                          {range.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
+                  </ul>
+                </>
               )}
-            </AnimatePresence>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* Results */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
-            <p className="text-gray-600">Recherche des meilleurs stages...</p>
-          </div>
-        ) : stages.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-20"
-          >
-            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Search className="w-10 h-10 text-gray-400" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Aucun stage trouvé</h3>
-            <p className="text-gray-600 max-w-md mx-auto mb-6">
-              Essayez d'élargir vos critères de recherche ou consultez nos autres stages disponibles.
-            </p>
-            <button
-              onClick={() => {
-                setCity("");
-                setTransmission("manuelle");
-                setSelectedMonth("");
-                setMaxPrice(null);
-                searchStages();
-              }}
-              className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors"
-            >
-              Réinitialiser la recherche
-            </button>
-          </motion.div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Results List */}
-            <div className="lg:col-span-2 space-y-6">
-              {stages.map((stage, index) => (
-                <motion.div
-                  key={stage.stage_id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow p-6 border border-gray-100"
-                >
-                  <div className="flex flex-col sm:flex-row gap-6">
-                    {/* City Image */}
-                    <div className="sm:w-48 h-32 sm:h-40 relative rounded-xl overflow-hidden flex-shrink-0 shadow-md">
-                      <Image
-                        src={getCityImage(stage.auto_ecole_city)}
-                        alt={stage.auto_ecole_city}
-                        fill
-                        sizes="200px"
-                        className="object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                      <div className="absolute bottom-2 left-2 text-white">
-                        <p className="font-bold text-sm">{stage.auto_ecole_city}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex-1">
-                      {/* Header */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-lg">
-                              {stage.license_type}
-                            </span>
-                            <span className="text-sm text-gray-500 flex items-center gap-1">
-                              <MapPin className="w-4 h-4" />
-                              {stage.auto_ecole_city}
-                            </span>
-                          </div>
-                          <h3 className="text-xl font-bold text-gray-900">{stage.stage_title}</h3>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-black text-blue-600">{stage.price}€</p>
-                          <p className="text-sm text-gray-500">TTC</p>
-                        </div>
-                      </div>
-
-                      {/* Auto-école */}
-                      <p className="text-gray-600 mb-3 flex items-center gap-2">
-                        <span className="font-semibold text-gray-900">{stage.auto_ecole_name}</span>
-                        {stage.auto_ecole_rating > 0 && (
-                          <span className="flex items-center gap-1 text-sm">
-                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                            {stage.auto_ecole_rating.toFixed(1)}
-                          </span>
-                        )}
-                      </p>
-
-                      {/* Details */}
-                      <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-4">
-                        <span className="flex items-center gap-1.5">
-                          <Calendar className="w-4 h-4" />
-                          Du {formatDate(stage.start_date)} au {formatDate(stage.end_date)}
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="w-4 h-4" />
-                          {calculateDuration(stage.start_date, stage.end_date)} jours
-                        </span>
-                        <span className="flex items-center gap-1.5">
-                          <Users className="w-4 h-4" />
-                          {stage.available_spots} place{stage.available_spots > 1 ? "s" : ""} restante
-                          {stage.available_spots > 1 ? "s" : ""}
-                        </span>
-                      </div>
-
-                      {/* Description */}
-                      {stage.stage_description && (
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                          {stage.stage_description}
-                        </p>
-                      )}
-
-                      {/* CTA */}
-                      <div className="flex items-center gap-3">
-                        <Link
-                          href={`/stage/${stage.stage_id}`}
-                          className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                          Voir les détails
-                          <ArrowRight className="w-4 h-4" />
-                        </Link>
-                        <button className="p-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-                          <Phone className="w-5 h-5 text-gray-600" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Promo Card */}
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-6 text-white">
-                <h3 className="text-xl font-bold mb-2">Vous ne trouvez pas ?</h3>
-                <p className="text-blue-100 text-sm mb-4">
-                  Créez une alerte et soyez notifié dès qu'un stage correspondant est disponible.
-                </p>
-                <Link
-                  href="/alerte"
-                  className="block w-full py-3 bg-white text-blue-600 font-bold rounded-xl text-center hover:bg-blue-50 transition-colors"
-                >
-                  Etre Contacter
-                </Link>
-              </div>
-
-              {/* Trust Card */}
-              <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
-                <h3 className="font-bold text-gray-900 mb-4">Pourquoi nous choisir ?</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <CheckCircle2 className="w-5 h-5 text-green-600" />
-                    </div>
-                    <span className="text-sm text-gray-600">Paiement sécurisé</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <CheckCircle2 className="w-5 h-5 text-green-600" />
-                    </div>
-                    <span className="text-sm text-gray-600">Annulation gratuite 48h avant</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <CheckCircle2 className="w-5 h-5 text-green-600" />
-                    </div>
-                    <span className="text-sm text-gray-600">Support 7j/7</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            </main>
           </div>
         )}
       </div>
@@ -581,17 +977,21 @@ function SearchContent() {
   );
 }
 
-// Export with Suspense wrapper for useSearchParams
 export default function SearchPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Chargement...</p>
+    <Suspense
+      fallback={
+        <div
+          className="min-h-screen flex items-center justify-center"
+          style={{ backgroundColor: BEIGE_BG }}
+        >
+          <div className="text-center">
+            <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" style={{ color: BRAND_BLUE }} />
+            <p className="text-gray-600">Chargement...</p>
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <SearchContent />
     </Suspense>
   );

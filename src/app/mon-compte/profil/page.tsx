@@ -20,6 +20,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+type PermitReason = "annulation" | "pas-de-date" | "manque-temps" | "echec";
+
+const permitReasons: PermitReason[] = ["annulation", "pas-de-date", "manque-temps", "echec"];
+
+function isPermitReason(value: string | null): value is PermitReason {
+  return permitReasons.includes(value as PermitReason);
+}
+
 export default function StudentProfile() {
   const router = useRouter();
   const supabase = createClient();
@@ -33,6 +41,11 @@ export default function StudentProfile() {
     name: "",
     email: "",
     phone: "",
+    date_naissance: "",
+    ville_naissance: "",
+    adresse: "",
+    complement_adresse: "",
+    code_postal: "",
     reason: "" as "annulation" | "pas-de-date" | "manque-temps" | "echec" | "",
     has_permit: false,
     transmission_preference: "" as "auto" | "manuelle" | "",
@@ -60,7 +73,12 @@ export default function StudentProfile() {
           name: userData.name || "",
           email: userData.email || "",
           phone: userData.phone || "",
-          reason: userData.reason || "",
+          date_naissance: userData.date_naissance || "",
+          ville_naissance: userData.ville_naissance || "",
+          adresse: userData.adresse || "",
+          complement_adresse: userData.complement_adresse || "",
+          code_postal: userData.code_postal || "",
+          reason: isPermitReason(userData.reason) ? userData.reason : "",
           has_permit: userData.has_permit || false,
           transmission_preference: userData.transmission_preference || "",
           has_code: userData.has_code || false,
@@ -87,9 +105,14 @@ export default function StudentProfile() {
         .update({
           name: formData.name,
           phone: formData.phone,
+          date_naissance: formData.date_naissance || null,
+          ville_naissance: formData.ville_naissance || null,
+          adresse: formData.adresse || null,
+          complement_adresse: formData.complement_adresse || null,
+          code_postal: formData.code_postal || null,
           reason: formData.reason,
           has_permit: formData.has_permit,
-          transmission_preference: formData.transmission_preference,
+          transmission_preference: formData.transmission_preference || null,
           has_code: formData.has_code,
           neph_number: formData.neph_number || null,
         })
@@ -193,6 +216,44 @@ export default function StudentProfile() {
                   placeholder="06 12 34 56 78"
                   className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
                 />
+              </div>
+            </div>
+
+            {/* Address & Birth Section */}
+            <div className="pt-6 border-t border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Adresse &amp; naissance</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Date de naissance</label>
+                  <input
+                    type="date"
+                    value={formData.date_naissance}
+                    onChange={(e) => setFormData({ ...formData, date_naissance: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none text-gray-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Adresse</label>
+                  <input
+                    type="text"
+                    value={formData.adresse}
+                    onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
+                    placeholder="12 rue de la Paix"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Code postal - Ville</label>
+                  <input
+                    type="text"
+                    value={formData.code_postal}
+                    onChange={(e) => setFormData({ ...formData, code_postal: e.target.value })}
+                    placeholder="75001 Paris"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
+                  />
+                </div>
               </div>
             </div>
 

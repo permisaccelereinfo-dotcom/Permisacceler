@@ -1,12 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { Database } from "@/lib/supabase/database.types";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -32,6 +33,17 @@ export async function updateSession(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+  const isDashboard = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  const isAccount = pathname === "/mon-compte" || pathname.startsWith("/mon-compte/");
+
+  if (!user && (isDashboard || isAccount)) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = isDashboard ? "/auto-ecole" : "/login";
+    redirectUrl.searchParams.set("redirectedFrom", pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
 
   return supabaseResponse;
 }

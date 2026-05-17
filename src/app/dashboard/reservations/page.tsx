@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { BookingStatus } from "@/lib/supabase/database.types";
 
 export default function ReservationsPage() {
   const router = useRouter();
@@ -46,7 +47,20 @@ export default function ReservationsPage() {
       if (ae) {
         setAutoEcole(ae);
 
-        // Get bookings with stage and user info
+        const { data: stageRows } = await supabase
+          .from("stages")
+          .select("id")
+          .eq("auto_ecole_id", ae.id);
+
+        const stageIds = stageRows?.map((stage) => stage.id) ?? [];
+
+        if (stageIds.length === 0) {
+          setBookings([]);
+          setLoading(false);
+          return;
+        }
+
+        // Get bookings through the stage relation. bookings does not own auto_ecole_id.
         const { data: bookingsData } = await supabase
           .from("bookings")
           .select(`
@@ -54,7 +68,7 @@ export default function ReservationsPage() {
             stage:stage_id (*),
             user:user_id (*)
           `)
-          .eq("auto_ecole_id", ae.id)
+          .in("stage_id", stageIds)
           .order("created_at", { ascending: false });
 
         setBookings(bookingsData || []);
@@ -66,7 +80,7 @@ export default function ReservationsPage() {
     fetchBookings();
   }, [router, supabase]);
 
-  const updateBookingStatus = async (bookingId: string, newStatus: string) => {
+  const updateBookingStatus = async (bookingId: string, newStatus: BookingStatus) => {
     const { error } = await supabase
       .from("bookings")
       .update({ status: newStatus })
