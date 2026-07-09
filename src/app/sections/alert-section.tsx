@@ -1,7 +1,6 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Bell } from "lucide-react";
 
 export function AlertSection() {
   return (

@@ -1,38 +1,15 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
-import { Database } from "@/lib/supabase/database.types";
+import * as Sentry from "@sentry/nextjs";
+import { confirmPaidBooking } from "@/lib/bookings/confirmation";
+import { stripe } from "@/lib/stripe";
+import { createAdminClient } from "@/lib/supabase/admin";
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-const stripe = stripeSecretKey
-  ? new Stripe(stripeSecretKey, {
-      apiVersion: "2026-04-22.dahlia",
-    })
-  : null;
-
-function createAdminClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  if (!serviceRoleKey || !supabaseUrl) {
-    return null;
-  }
-
-  return createSupabaseAdminClient<Database>(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
 
 export async function POST(req: Request) {
   if (!stripe || !webhookSecret) {
-    return NextResponse.json(
-      { error: "Stripe webhook is not configured." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Stripe webhook is not configured." }, { status: 500 });
   }
 
   const signature = req.headers.get("stripe-signature");
@@ -60,26 +37,28 @@ export async function POST(req: Request) {
     );
   }
 
-  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+  if (
+    event.type === "checkout.session.completed" ||
+    event.type === "checkout.session.async_payment_succeeded"
+  ) {
     const session = event.data.object as Stripe.Checkout.Session;
     const bookingId = session.metadata?.bookingId ?? session.client_reference_id;
 
     if (bookingId && session.payment_status === "paid") {
-      const paidAmount = (session.amount_total ?? 0) / 100;
-      const { error } = await supabaseAdmin
-        .from("bookings")
-        .update({
-          status: "confirmed",
-          payment_status: "fully_paid",
-          deposit_paid: paidAmount,
-          balance_due: 0,
-          stripe_session_id: session.id,
-        })
-        .eq("id", bookingId);
+      const result = await confirmPaidBooking({
+        databaseClient: supabaseAdmin,
+        bookingId,
+        stripeSessionId: session.id,
+        paidAmount: (session.amount_total ?? 0) / 100,
+        fallbackUserEmail: session.customer_details?.email ?? session.customer_email,
+      });
 
-      if (error) {
-        console.error("Stripe webhook could not confirm booking:", error);
-        return NextResponse.json({ error: "Booking update failed." }, { status: 500 });
+      if (!result.ok) {
+        Sentry.captureMessage(
+          `Stripe webhook failed to confirm booking ${bookingId}: ${result.error}`,
+          "error"
+        );
+        return NextResponse.json({ error: result.error }, { status: result.status });
       }
     }
   }
@@ -102,6 +81,7 @@ export async function POST(req: Request) {
 
       if (error) {
         console.error("Stripe webhook could not expire booking:", error);
+        Sentry.captureException(error);
         return NextResponse.json({ error: "Booking update failed." }, { status: 500 });
       }
     }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, MapPin, Calendar, Car, ChevronDown, Check } from "lucide-react";
+import { Search, MapPin, Calendar, Car, ChevronDown, Check, Clock } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 
@@ -44,10 +44,10 @@ function CustomSelect({ label, icon, value, onChange, options, placeholder, clas
   return (
     <div 
       ref={ref}
-      className={`flex-1 flex flex-col px-6 py-2 relative group cursor-pointer hover:bg-gray-50/50 transition-colors ${isOpen ? 'z-50' : 'z-10'} ${className}`}
+      className={`flex-1 flex flex-col px-6 lg:px-4 py-2 relative group cursor-pointer hover:bg-gray-50/50 transition-colors ${isOpen ? 'z-50' : 'z-10'} ${className}`}
       onClick={() => setIsOpen(!isOpen)}
     >
-      <label className="text-[10px] font-bold uppercase tracking-wider text-[#1278CC] mb-0.5 cursor-pointer">{label}</label>
+      <label className="text-[10px] font-bold uppercase tracking-wide text-[#1278CC] mb-0.5 cursor-pointer whitespace-nowrap">{label}</label>
       <div className="flex items-center w-full">
         <div className="text-gray-400 mr-2 group-hover:text-[#1278CC] transition-colors">
           {icon}
@@ -97,6 +97,7 @@ export function Hero() {
   const [city, setCity] = useState("");
   const [startMonth, setStartMonth] = useState("");
   const [transmission, setTransmission] = useState("Boîte manuelle");
+  const [stageType, setStageType] = useState("");
 
   const months = Array.from({ length: 10 }, (_, i) => {
     const d = new Date();
@@ -220,17 +221,22 @@ export function Hero() {
     "Menton",
     "Bergerac"
   ];
+  // Keep the full city list close to the hero until the city autocomplete is restored.
+  void frenchCities;
 
   const handleSearch = () => {
     const params = new URLSearchParams();
     if (city) params.set("city", city);
     if (startMonth) params.set("month", startMonth);
     if (transmission) params.set("transmission", transmission);
+    if (stageType) params.set("type", stageType);
     router.push(`/recherche?${params.toString()}`);
   };
 
   return (
-    <section className="relative overflow-x-hidden z-40 bg-[#1278CC] pt-4 pb-0 lg:pt-6 lg:pb-0">
+    // overflow-x-clip (not -hidden): hidden forces overflow-y to auto, which
+    // would clip the select dropdowns at the section's bottom edge.
+    <section className="relative overflow-x-clip z-40 bg-[#1278CC] pt-4 pb-0 lg:pt-6 lg:pb-0">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-8">
           
@@ -253,7 +259,8 @@ export function Hero() {
               className="mt-8 w-full"
             >
               {/* Premium Search Bar */}
-              <div className="bg-white rounded-2xl lg:rounded-full shadow-2xl p-2 lg:p-3 flex flex-col lg:flex-row items-stretch lg:items-center w-full max-w-5xl gap-2 lg:gap-0">
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-4 w-full">
+              <div className="bg-white rounded-2xl lg:rounded-full shadow-2xl p-2 lg:p-3 flex flex-col lg:flex-row items-stretch lg:items-center w-full lg:flex-1 gap-2 lg:gap-0">
                 
                 {/* Field 1: Lieu du stage */}
                 <CustomSelect 
@@ -265,18 +272,18 @@ export function Hero() {
                     { label: "Île de France", value: "ile_de_france" },
                     { label: "Province", value: "province" }
                   ]}
-                  placeholder="Sélectionnez..."
+                  placeholder="Choisir..."
                   className="border-b lg:border-b-0 lg:border-r border-gray-100 first:rounded-t-2xl lg:first:rounded-l-full"
                 />
 
                 {/* Field 2: Date de démarrage */}
                 <CustomSelect 
-                  label="Date de démarrage du stage"
+                  label="Date de début"
                   icon={<Calendar className="h-4 w-4" />}
                   value={startMonth}
                   onChange={setStartMonth}
                   options={months.map(m => ({ label: m, value: m }))}
-                  placeholder="Sélectionnez..."
+                  placeholder="Choisir..."
                   className="border-b lg:border-b-0 lg:border-r border-gray-100"
                 />
 
@@ -290,19 +297,37 @@ export function Hero() {
                     { label: "Boîte manuelle", value: "Boîte manuelle" },
                     { label: "Boîte automatique", value: "Boîte automatique" }
                   ]}
-                  placeholder="Sélectionnez..."
-                  className="lg:rounded-r-none"
+                  placeholder="Choisir..."
+                  className="border-b lg:border-b-0 lg:border-r border-gray-100"
                   dropdownAlign="right"
                 />
 
-                {/* Submit Button */}
-                <button 
-                  onClick={handleSearch}
-                  className="bg-[#00234b] hover:bg-black text-white rounded-xl lg:rounded-full px-8 py-4 lg:py-4 font-bold transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-navy/20 hover:-translate-y-0.5 active:translate-y-0 min-w-[160px]"
-                >
-                  <span>Rechercher</span>
-                  <Search className="h-4 w-4" />
-                </button>
+                {/* Field 4: Type de stage */}
+                <CustomSelect 
+                  label="Type de stage"
+                  icon={<Clock className="h-4 w-4" />}
+                  value={stageType}
+                  onChange={setStageType}
+                  options={[
+                    { label: "4H", value: "4H" },
+                    { label: "6H", value: "6H" },
+                    { label: "10H", value: "10H" }
+                  ]}
+                  placeholder="Choisir..."
+                  className="rounded-b-2xl lg:rounded-b-none lg:rounded-r-full"
+                  dropdownAlign="right"
+                />
+
+              </div>
+
+              {/* Submit Button — standalone, right of the bar on desktop */}
+              <button
+                onClick={handleSearch}
+                className="bg-[#00234b] hover:bg-black text-white rounded-xl lg:rounded-full px-8 lg:px-6 py-4 lg:py-4 font-bold transition-all flex items-center justify-center gap-2 shadow-2xl hover:shadow-navy/20 hover:-translate-y-0.5 active:translate-y-0 min-w-[160px] lg:min-w-[140px] lg:shrink-0"
+              >
+                <span>Rechercher</span>
+                <Search className="h-4 w-4" />
+              </button>
 
               </div>
             </motion.div>

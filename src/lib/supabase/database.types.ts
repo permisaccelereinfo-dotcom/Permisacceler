@@ -1,3 +1,13 @@
+// CURATED types — source of truth for the app. Hand-maintained so we keep the
+// strong union aliases below (UserRole/BookingStatus/PaymentStatus) and the RPC
+// signatures. The DB stores these as TEXT + CHECK constraints (not Postgres
+// enums), so `supabase gen types` would widen them to `string` — that's why we
+// don't auto-generate over this file.
+//
+// To check for schema drift, run `npm run db:types` (requires `supabase link`
+// and SUPABASE_PROJECT_ID); it writes database.generated.ts, which you can diff
+// against this file. To make generated types as strong as these, convert the
+// status/role columns to real Postgres enum types first.
 export type Json =
   | string
   | number
@@ -220,6 +230,9 @@ export type Database = {
           notes: string | null;
           cancellation_reason: string | null;
           cancelled_at: string | null;
+          confirmation_email_sent_at: string | null;
+          receipt_email_sent_at: string | null;
+          auto_ecole_notified_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -237,6 +250,9 @@ export type Database = {
           notes?: string | null;
           cancellation_reason?: string | null;
           cancelled_at?: string | null;
+          confirmation_email_sent_at?: string | null;
+          receipt_email_sent_at?: string | null;
+          auto_ecole_notified_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -254,6 +270,9 @@ export type Database = {
           notes?: string | null;
           cancellation_reason?: string | null;
           cancelled_at?: string | null;
+          confirmation_email_sent_at?: string | null;
+          receipt_email_sent_at?: string | null;
+          auto_ecole_notified_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -333,6 +352,39 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      register_auto_ecole: {
+        Args: {
+          p_user_id: string;
+          p_email: string;
+          p_responsible_name: string;
+          p_phone: string;
+          p_auto_ecole_name: string;
+          p_address: string;
+          p_city: string;
+          p_postal_code: string;
+        };
+        Returns: string;
+      };
+      expire_stale_pending_bookings: {
+        Args: {
+          p_max_age?: string;
+        };
+        Returns: number;
+      };
+      reserve_booking_for_checkout: {
+        Args: {
+          p_user_id: string;
+          p_stage_id: string;
+          p_metadata?: Json | null;
+          p_exam_support_price?: number | null;
+        };
+        Returns: {
+          booking_id: string;
+          total_price: number;
+          stage_title: string;
+          stage_type: string | null;
+        }[];
+      };
       search_stages: {
         Args: {
           search_region?: string | null;

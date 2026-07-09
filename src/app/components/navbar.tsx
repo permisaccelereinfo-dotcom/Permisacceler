@@ -21,7 +21,7 @@ export function Navbar() {
           .from("users")
           .select("name, role")
           .eq("id", authUser.id)
-          .single();
+          .maybeSingle();
         setUser({ ...authUser, ...userData });
       }
     };

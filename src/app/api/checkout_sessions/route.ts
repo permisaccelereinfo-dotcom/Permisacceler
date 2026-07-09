@@ -1,37 +1,20 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
-import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/nextjs";
 import { createClient as createServerSupabaseClient } from "@/lib/supabase/server";
-import { Database, Json } from "@/lib/supabase/database.types";
+import { Json } from "@/lib/supabase/database.types";
+import { EXAM_SUPPORT_PRICE } from "@/lib/checkout/pricing";
+import { sanitizeCheckoutMetadata } from "@/lib/checkout/metadata";
+import { stripe } from "@/lib/stripe";
+import { createDatabaseClient } from "@/lib/supabase/admin";
 
 type CheckoutRequest = {
   stageId?: string;
   formData?: Json;
-  optionsPrice?: number;
 };
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-const stripe = stripeSecretKey
-  ? new Stripe(stripeSecretKey, {
-      apiVersion: "2026-04-22.dahlia",
-    })
-  : null;
-
-function createDatabaseClient(fallback: Awaited<ReturnType<typeof createServerSupabaseClient>>) {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  if (!serviceRoleKey || !supabaseUrl) {
-    return fallback;
-  }
-
-  return createSupabaseAdminClient<Database>(supabaseUrl, serviceRoleKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-}
+// Stripe checkout sessions expire so abandoned carts release their reserved
+// seat quickly (Stripe allows 30 min – 24 h; we use the 30 min minimum).
+const CHECKOUT_SESSION_TTL_SECONDS = 30 * 60;
 
 export async function POST(req: Request) {
   if (!stripe) {
@@ -44,7 +27,6 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json()) as CheckoutRequest;
     const { stageId, formData } = body;
-    const optionsPrice = Number.isFinite(body.optionsPrice) ? Number(body.optionsPrice) : 65;
 
     if (!stageId) {
       return NextResponse.json({ error: "Missing stageId" }, { status: 400 });
@@ -65,51 +47,35 @@ export async function POST(req: Request) {
 
     const databaseClient = createDatabaseClient(supabase);
 
-    const { data: stage, error: stageError } = await databaseClient
-      .from("stages")
-      .select("id, title, price, stage_type, max_students, enrolled_students, is_available, status")
-      .eq("id", stageId)
+    // Never persist secrets (e.g. the account password) the client may include
+    // in formData — whitelist the fields we actually want to keep.
+    const safeMetadata = sanitizeCheckoutMetadata(formData);
+
+    const { data: reservation, error: reservationError } = await databaseClient
+      .rpc("reserve_booking_for_checkout", {
+        p_user_id: user.id,
+        p_stage_id: stageId,
+        p_metadata: safeMetadata,
+        p_exam_support_price: EXAM_SUPPORT_PRICE,
+      })
       .single();
 
-    if (stageError || !stage) {
-      console.error("Error fetching stage:", stageError);
-      return NextResponse.json({ error: "Stage not found" }, { status: 404 });
-    }
-
-    if (!stage.is_available || stage.status !== "active") {
-      return NextResponse.json({ error: "Ce stage n'est plus disponible." }, { status: 409 });
-    }
-
-    const availableSpots = stage.max_students - stage.enrolled_students;
-    if (availableSpots <= 0) {
-      return NextResponse.json({ error: "Ce stage est complet." }, { status: 409 });
-    }
-
-    const stagePrice = Number(stage.price);
-    const totalPrice = stagePrice + Math.max(optionsPrice, 0);
-
-    const { data: booking, error: bookingError } = await databaseClient
-      .from("bookings")
-      .upsert(
-        {
-          user_id: user.id,
-          stage_id: stageId,
-          status: "pending",
-          total_price: totalPrice,
-          balance_due: totalPrice,
-          payment_status: "pending_deposit",
-          metadata: formData ?? null,
-        },
-        { onConflict: "user_id,stage_id" }
-      )
-      .select("id")
-      .single();
-
-    if (bookingError || !booking) {
-      console.error("Error creating booking:", bookingError);
+    if (reservationError || !reservation) {
+      console.error("Error reserving booking:", reservationError);
+      const message =
+        reservationError?.message || "La réservation n'a pas pu être créée.";
       return NextResponse.json(
-        { error: "La réservation n'a pas pu être créée." },
-        { status: 400 }
+        { error: message },
+        {
+          status:
+            message.includes("introuvable") || message.includes("not found")
+              ? 404
+              : message.includes("complet") ||
+                  message.includes("disponible") ||
+                  message.includes("déjà")
+                ? 409
+                : 400,
+        }
       );
     }
 
@@ -120,21 +86,22 @@ export async function POST(req: Request) {
           price_data: {
             currency: "eur",
             product_data: {
-              name: stage.title,
-              description: `${stage.stage_type ?? "Stage intensif"} + Accompagnement examen pratique`,
+              name: reservation.stage_title,
+              description: `${reservation.stage_type ?? "Stage intensif"} + Accompagnement examen pratique`,
             },
-            unit_amount: Math.round(totalPrice * 100),
+            unit_amount: Math.round(Number(reservation.total_price) * 100),
           },
           quantity: 1,
         },
       ],
       mode: "payment",
-      success_url: `${process.env.FRONTEND_URL || "http://localhost:3000"}/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${booking.id}`,
+      expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_SESSION_TTL_SECONDS,
+      success_url: `${process.env.FRONTEND_URL || "http://localhost:3000"}/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${reservation.booking_id}`,
       cancel_url: `${process.env.FRONTEND_URL || "http://localhost:3000"}/cancel`,
-      client_reference_id: booking.id,
+      client_reference_id: reservation.booking_id,
       metadata: {
-        bookingId: booking.id,
-        stageId: stage.id,
+        bookingId: reservation.booking_id,
+        stageId,
         userId: user.id,
       },
     });
@@ -142,12 +109,13 @@ export async function POST(req: Request) {
     await databaseClient
       .from("bookings")
       .update({ stripe_session_id: session.id })
-      .eq("id", booking.id);
+      .eq("id", reservation.booking_id);
 
     return NextResponse.json({ url: session.url });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal Server Error";
     console.error("Error creating checkout session:", message);
+    Sentry.captureException(err);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
