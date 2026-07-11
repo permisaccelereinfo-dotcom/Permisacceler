@@ -637,7 +637,11 @@ function SearchContent() {
         setStages(await enrichStages(filteredData));
       }
     } catch (error) {
-      console.error("Error fetching stages:", error);
+      console.error(
+        "Error fetching stages:",
+        error instanceof Error ? error.message : JSON.stringify(error),
+        error
+      );
     } finally {
       setLoading(false);
     }
