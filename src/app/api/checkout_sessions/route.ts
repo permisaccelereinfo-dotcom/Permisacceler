@@ -106,10 +106,19 @@ export async function POST(req: Request) {
       },
     });
 
-    await databaseClient
+    // Best-effort: the webhook matches on metadata.bookingId, so a failure
+    // here (e.g. no service-role key, which the bookings hardening trigger
+    // requires for payment fields) must not block the checkout — but it
+    // should be visible.
+    const { error: sessionIdError } = await databaseClient
       .from("bookings")
       .update({ stripe_session_id: session.id })
       .eq("id", reservation.booking_id);
+
+    if (sessionIdError) {
+      console.error("Could not store stripe_session_id:", sessionIdError);
+      Sentry.captureException(sessionIdError);
+    }
 
     return NextResponse.json({ url: session.url });
   } catch (err: unknown) {

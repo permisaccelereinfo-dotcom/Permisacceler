@@ -11,19 +11,23 @@ import {
   Users,
   Car,
   CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export default function NewStagePage() {
+export default function EditStagePage() {
+  const params = useParams();
+  const stageId = params?.id as string;
   const router = useRouter();
   const supabase = createClient();
-  const [loading, setLoading] = useState(false);
+
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [autoEcole, setAutoEcole] = useState<any>(null);
+  const [enrolled, setEnrolled] = useState(0);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -33,10 +37,14 @@ export default function NewStagePage() {
     end_date: "",
     price: "",
     max_students: "6",
+    status: "active" as "active" | "cancelled" | "completed",
+    is_available: true,
   });
 
   useEffect(() => {
-    const checkAuth = async () => {
+    const fetchStage = async () => {
+      if (!stageId) return;
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push("/auto-ecole");
@@ -50,36 +58,59 @@ export default function NewStagePage() {
         return;
       }
 
-      // Get auto-école info
-      const { data: autoEcoleData } = await supabase
+      const { data: ae } = await supabase
         .from("auto_ecoles")
-        .select("*")
+        .select("id")
         .eq("user_id", user.id)
         .maybeSingle();
 
-      if (autoEcoleData) {
-        setAutoEcole(autoEcoleData);
-      } else {
+      if (!ae) {
         setError("Votre profil auto-école est introuvable. Veuillez contacter le support.");
+        setLoading(false);
+        return;
       }
+
+      // Scoping on auto_ecole_id as well as id means another school's stage
+      // reads as "not found" rather than rendering an unsaveable form.
+      const { data: stage } = await supabase
+        .from("stages")
+        .select("*")
+        .eq("id", stageId)
+        .eq("auto_ecole_id", ae.id)
+        .maybeSingle();
+
+      if (!stage) {
+        setError("Stage introuvable.");
+        setLoading(false);
+        return;
+      }
+
+      setEnrolled(stage.enrolled_students ?? 0);
+      setFormData({
+        title: stage.title ?? "",
+        description: stage.description ?? "",
+        license_type: stage.license_type ?? "B",
+        start_date: stage.start_date ?? "",
+        end_date: stage.end_date ?? "",
+        price: String(stage.price ?? ""),
+        max_students: String(stage.max_students ?? 6),
+        status: stage.status ?? "active",
+        is_available: stage.is_available ?? true,
+      });
+
       setLoading(false);
     };
 
-    checkAuth();
-  }, [router, supabase]);
+    fetchStage();
+  }, [stageId, router, supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    setSuccess(false);
 
     try {
-      if (!autoEcole) {
-        throw new Error("Vous devez être connecté en tant qu'auto-école");
-      }
-
-      // Number(), not parseInt(): price is DECIMAL(10,2) in the DB and
-      // parseInt("890.50") silently dropped the cents.
       const price = Number(formData.price);
       const maxStudents = Number(formData.max_students);
 
@@ -88,6 +119,11 @@ export default function NewStagePage() {
       }
       if (!Number.isInteger(maxStudents) || maxStudents < 1) {
         throw new Error("Le nombre maximum d'élèves doit être d'au moins 1.");
+      }
+      if (maxStudents < enrolled) {
+        throw new Error(
+          `Ce stage compte déjà ${enrolled} inscrit${enrolled > 1 ? "s" : ""} : la capacité ne peut pas être inférieure.`
+        );
       }
       if (!formData.start_date || !formData.end_date) {
         throw new Error("Veuillez renseigner les dates de début et de fin.");
@@ -101,29 +137,35 @@ export default function NewStagePage() {
       const durationDays =
         Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-      const { error: insertError } = await supabase.from("stages").insert({
-        auto_ecole_id: autoEcole.id,
-        title: formData.title,
-        description: formData.description || null,
-        license_type: formData.license_type,
-        start_date: formData.start_date,
-        end_date: formData.end_date,
-        duration_days: durationDays,
-        price,
-        max_students: maxStudents,
-        enrolled_students: 0,
-        status: "active",
-        is_available: true,
-      });
+      const { data: updated, error: updateError } = await supabase
+        .from("stages")
+        .update({
+          title: formData.title,
+          description: formData.description || null,
+          license_type: formData.license_type,
+          start_date: formData.start_date,
+          end_date: formData.end_date,
+          duration_days: durationDays,
+          price,
+          max_students: maxStudents,
+          status: formData.status,
+          is_available: formData.status === "active" ? formData.is_available : false,
+        })
+        .eq("id", stageId)
+        .select("id")
+        .maybeSingle();
 
-      if (insertError) throw insertError;
+      if (updateError) throw updateError;
+
+      // An UPDATE refused by RLS returns no error and no row.
+      if (!updated) {
+        throw new Error("Modification refusée. Vérifiez que ce stage vous appartient.");
+      }
 
       setSuccess(true);
-      setTimeout(() => {
-        router.push("/dashboard/stages");
-      }, 1500);
+      setTimeout(() => router.push("/dashboard/stages"), 1200);
     } catch (err: any) {
-      setError(err.message || "Erreur lors de la création");
+      setError(err?.message || "Erreur lors de l'enregistrement");
     } finally {
       setSaving(false);
     }
@@ -158,21 +200,24 @@ export default function NewStagePage() {
               <Car className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Nouveau stage</h1>
-              <p className="text-gray-600">Créez un nouveau stage de conduite</p>
+              <h1 className="text-2xl font-bold text-gray-900">Modifier le stage</h1>
+              <p className="text-gray-600">
+                {enrolled} élève{enrolled > 1 ? "s" : ""} inscrit{enrolled > 1 ? "s" : ""}
+              </p>
             </div>
           </div>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl">
-              {error}
+            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
 
           {success && (
             <div className="mb-6 p-4 bg-green-50 text-green-600 rounded-xl flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5" />
-              Stage créé avec succès ! Redirection...
+              Stage mis à jour ! Redirection...
             </div>
           )}
 
@@ -185,7 +230,6 @@ export default function NewStagePage() {
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder="Stage intensif permis B - Juillet 2026"
                 required
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
               />
@@ -198,7 +242,6 @@ export default function NewStagePage() {
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Détails du stage, horaires, inclut leçons de conduite..."
                 rows={4}
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none resize-none"
               />
@@ -230,7 +273,7 @@ export default function NewStagePage() {
                   <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
                     type="number"
-                    min="1"
+                    min={Math.max(enrolled, 1)}
                     max="20"
                     value={formData.max_students}
                     onChange={(e) => setFormData({ ...formData, max_students: e.target.value })}
@@ -287,10 +330,44 @@ export default function NewStagePage() {
                   step="10"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  placeholder="890"
                   required
                   className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Statut</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) =>
+                    setFormData({ ...formData, status: e.target.value as typeof formData.status })
+                  }
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
+                >
+                  <option value="active">Actif</option>
+                  <option value="cancelled">Annulé</option>
+                  <option value="completed">Terminé</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Visibilité</label>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, is_available: !formData.is_available })}
+                  disabled={formData.status !== "active"}
+                  className={`w-full py-3 rounded-xl border-2 font-semibold transition-colors disabled:opacity-50 ${
+                    formData.status === "active" && formData.is_available
+                      ? "border-green-500 bg-green-50 text-green-700"
+                      : "border-gray-200 text-gray-600"
+                  }`}
+                >
+                  {formData.status === "active" && formData.is_available
+                    ? "Visible dans la recherche"
+                    : "Masqué"}
+                </button>
               </div>
             </div>
 
@@ -311,7 +388,7 @@ export default function NewStagePage() {
                 ) : (
                   <>
                     <Save className="w-5 h-5" />
-                    Créer le stage
+                    Enregistrer
                   </>
                 )}
               </button>

@@ -18,7 +18,7 @@ export type Json =
 
 export type UserRole = "student" | "auto_ecole" | "admin";
 export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
-export type PaymentStatus = "pending_deposit" | "deposit_paid" | "fully_paid";
+export type PaymentStatus = "pending_deposit" | "deposit_paid" | "fully_paid" | "refunded";
 
 export type Database = {
   public: {

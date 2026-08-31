@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Building2, Calendar, Users, DollarSign, LogOut, Loader2, Bell } from "lucide-react";
+import { Building2, Calendar, Users, DollarSign, Loader2, Bell } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -11,8 +11,8 @@ export default function DashboardPage() {
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
   const [autoEcole, setAutoEcole] = useState<any>(null);
+  const [missingProfile, setMissingProfile] = useState(false);
   const [stats, setStats] = useState({
     activeStages: 0,
     totalReservations: 0,
@@ -36,8 +36,6 @@ export default function DashboardPage() {
         return;
       }
 
-      setUser(user);
-
       // Fetch auto-ecole data
       const { data: autoEcoleData } = await supabase
         .from("auto_ecoles")
@@ -46,54 +44,50 @@ export default function DashboardPage() {
         .maybeSingle();
 
       setAutoEcole(autoEcoleData);
+      setMissingProfile(!autoEcoleData);
 
       if (autoEcoleData) {
-        // Fetch active stages count
-        const { count: activeStagesCount } = await supabase
+        const { data: stageRows } = await supabase
           .from("stages")
-          .select("id", { count: "exact", head: true })
-          .eq("auto_ecole_id", autoEcoleData.id)
-          .eq("status", "active");
+          .select("id, status")
+          .eq("auto_ecole_id", autoEcoleData.id);
 
-        // Fetch total reservations and revenue
-        const { data: bookingsData } = await supabase
-          .from("bookings")
-          .select("status, total_price, created_at")
-          .in(
-            "stage_id",
-            (
-              await supabase
-                .from("stages")
-                .select("id")
-                .eq("auto_ecole_id", autoEcoleData.id)
-            ).data?.map((s) => s.id) ?? []
-          );
+        const stageIds = stageRows?.map((s) => s.id) ?? [];
+        const activeStagesCount =
+          stageRows?.filter((s) => s.status === "active").length ?? 0;
 
-        const totalReservations = bookingsData?.length ?? 0;
-        const revenue =
-          bookingsData
-            ?.filter((b) => b.status === "confirmed" || b.status === "completed")
-            .reduce((sum, b) => sum + (b.total_price ?? 0), 0) ?? 0;
+        const { data: bookingsData } = stageIds.length
+          ? await supabase
+              .from("bookings")
+              .select("status, total_price, user_id, created_at")
+              .in("stage_id", stageIds)
+          : { data: [] as { status: string; total_price: number; user_id: string; created_at: string }[] };
 
-        // Fetch enrolled students (confirmed bookings count)
-        const enrolledStudents =
-          bookingsData?.filter((b) => b.status === "confirmed" || b.status === "completed")
-            .length ?? 0;
+        // A cancelled booking is not a reservation the school still holds.
+        const liveBookings =
+          bookingsData?.filter((b) => b.status !== "cancelled") ?? [];
+        const paidBookings = liveBookings.filter(
+          (b) => b.status === "confirmed" || b.status === "completed"
+        );
 
-        // Count new confirmed bookings from last 7 days
+        const revenue = paidBookings.reduce((sum, b) => sum + (b.total_price ?? 0), 0);
+
+        // Distinct students, not booking rows: one student booking two stages
+        // used to be counted twice under "Élèves inscrits".
+        const enrolledStudents = new Set(paidBookings.map((b) => b.user_id)).size;
+
+        // Count new confirmed bookings from last 7 days. Confirmed only, to
+        // match the "Nouvelle" badge on the reservations page.
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const newCount =
-          bookingsData?.filter(
-            (b) =>
-              (b.status === "confirmed" || b.status === "completed") &&
-              b.created_at &&
-              new Date(b.created_at) >= sevenDaysAgo
-          ).length ?? 0;
+        const newCount = paidBookings.filter(
+          (b) =>
+            b.status === "confirmed" && b.created_at && new Date(b.created_at) >= sevenDaysAgo
+        ).length;
 
         setStats({
-          activeStages: activeStagesCount ?? 0,
-          totalReservations,
+          activeStages: activeStagesCount,
+          totalReservations: liveBookings.length,
           revenue,
           enrolledStudents,
         });
@@ -106,11 +100,6 @@ export default function DashboardPage() {
     checkUser();
   }, [router, supabase]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/auto-ecole");
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -121,33 +110,26 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Custom Header - No default navbar */}
-      <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <Link href="/" className="text-2xl font-black text-blue-600 tracking-tight italic">
-            PermisAccéléré
-          </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-gray-700 font-medium">{autoEcole?.name || user?.email}</span>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors text-sm font-semibold"
-            >
-              <LogOut className="w-4 h-4" />
-              Déconnexion
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <h1 className="text-3xl font-bold text-gray-900 mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Tableau de bord
           </h1>
+          <p className="text-gray-600 mb-8">{autoEcole?.name}</p>
+
+          {/* No auto-ecole profile attached to this account */}
+          {missingProfile && (
+            <div className="mb-8 bg-amber-50 border border-amber-200 rounded-2xl p-5">
+              <p className="font-semibold text-amber-900">Profil auto-école introuvable</p>
+              <p className="text-sm text-amber-700">
+                Votre compte n&apos;est rattaché à aucune auto-école, vos stages et réservations ne
+                peuvent pas être affichés. Contactez le support pour finaliser votre inscription.
+              </p>
+            </div>
+          )}
 
           {/* Notification banner */}
           {newBookingsCount > 0 && (
@@ -257,7 +239,7 @@ export default function DashboardPage() {
             </div>
           </div>
         </motion.div>
-      </main>
+      </div>
     </div>
   );
 }

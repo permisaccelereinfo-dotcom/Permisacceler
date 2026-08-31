@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import * as Sentry from "@sentry/nextjs";
 import { confirmPaidBooking } from "@/lib/bookings/confirmation";
-import { stripe } from "@/lib/stripe";
+import { refundCheckoutSessionPayment, stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -52,6 +52,31 @@ export async function POST(req: Request) {
         paidAmount: (session.amount_total ?? 0) / 100,
         fallbackUserEmail: session.customer_details?.email ?? session.customer_email,
       });
+
+      if (!result.ok && result.code === "booking_not_pending") {
+        // The booking was cancelled before the payment settled: refund the
+        // charge instead of confirming, and acknowledge the event so Stripe
+        // does not retry a permanently unconfirmable booking.
+        let refunded = false;
+        try {
+          refunded = await refundCheckoutSessionPayment(stripe, session.id);
+          if (refunded) {
+            await supabaseAdmin
+              .from("bookings")
+              .update({ payment_status: "refunded" })
+              .eq("id", bookingId)
+              .eq("status", "cancelled");
+          }
+        } catch (refundErr) {
+          Sentry.captureException(refundErr);
+        }
+        Sentry.captureMessage(
+          `Payment received for non-pending booking ${bookingId}; ` +
+            (refunded ? "refunded automatically." : "AUTOMATIC REFUND FAILED — refund manually."),
+          refunded ? "warning" : "error"
+        );
+        return NextResponse.json({ received: true, refunded });
+      }
 
       if (!result.ok) {
         Sentry.captureMessage(

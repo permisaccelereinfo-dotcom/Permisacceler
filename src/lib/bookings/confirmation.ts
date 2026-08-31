@@ -47,6 +47,10 @@ type ConfirmPaidBookingResult =
       ok: false;
       status: number;
       error: string;
+      // "booking_not_pending": the payment landed on a booking that is no
+      // longer pending (typically cancelled meanwhile) — the caller should
+      // refund it rather than retry.
+      code?: "booking_not_pending";
     };
 
 export async function confirmPaidBooking({
@@ -80,6 +84,18 @@ export async function confirmPaidBooking({
 
   const wasAlreadyPaid = isPaidBookingStatus(existingBooking.status);
 
+  // Never resurrect a cancelled booking: the school (or the expired-session
+  // webhook) may have cancelled it while the student was still on the Stripe
+  // page, and the seat may have been released or resold since.
+  if (!wasAlreadyPaid && existingBooking.status !== "pending") {
+    return {
+      ok: false,
+      status: 409,
+      code: "booking_not_pending",
+      error: "La réservation a été annulée avant la confirmation du paiement.",
+    };
+  }
+
   if (!wasAlreadyPaid) {
     // Guard against confirming a booking that wasn't paid in full. The amount
     // is server-computed at session creation, but verifying it here protects
@@ -97,6 +113,8 @@ export async function confirmPaidBooking({
       };
     }
 
+    // .eq("status", "pending") re-checks the status atomically: a cancellation
+    // racing between the read above and this write must not be overwritten.
     let updateQuery = databaseClient
       .from("bookings")
       .update({
@@ -106,13 +124,14 @@ export async function confirmPaidBooking({
         balance_due: 0,
         stripe_session_id: stripeSessionId,
       })
-      .eq("id", bookingId);
+      .eq("id", bookingId)
+      .eq("status", "pending");
 
     if (userId) {
       updateQuery = updateQuery.eq("user_id", userId);
     }
 
-    const { error: updateError } = await updateQuery;
+    const { data: updatedRows, error: updateError } = await updateQuery.select("id");
 
     if (updateError) {
       console.error("Could not confirm booking:", updateError);
@@ -121,6 +140,15 @@ export async function confirmPaidBooking({
         ok: false,
         status: 500,
         error: "La réservation n'a pas pu être confirmée.",
+      };
+    }
+
+    if (!updatedRows || updatedRows.length === 0) {
+      return {
+        ok: false,
+        status: 409,
+        code: "booking_not_pending",
+        error: "La réservation a été annulée avant la confirmation du paiement.",
       };
     }
   }

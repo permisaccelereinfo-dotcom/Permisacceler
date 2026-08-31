@@ -12,6 +12,7 @@ import {
   Mail,
   Globe,
   CheckCircle2,
+  AlertCircle,
   Star,
 } from "lucide-react";
 import Link from "next/link";
@@ -24,6 +25,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [autoEcole, setAutoEcole] = useState<any>(null);
 
   const [formData, setFormData] = useState({
@@ -70,8 +72,10 @@ export default function ProfilePage() {
           email: ae.email || "",
           website: ae.website || "",
           description: ae.description || "",
-          rating: ae.rating || 0,
+          rating: Number(ae.rating) || 0,
         });
+      } else {
+        setError("Votre profil auto-école est introuvable. Contactez le support.");
       }
 
       setLoading(false);
@@ -84,30 +88,59 @@ export default function ProfilePage() {
     e.preventDefault();
     setSaving(true);
     setSuccess(false);
+    setError(null);
 
     try {
-      if (!autoEcole) return;
+      if (!autoEcole) {
+        setError("Votre profil auto-école est introuvable. Contactez le support.");
+        return;
+      }
 
-      const { error } = await supabase
+      // address / city / postal_code / phone / email are NOT NULL in the DB:
+      // saving them blank used to fail with a raw Postgres error nobody saw.
+      const required: [string, string][] = [
+        ["Nom de l'auto-école", formData.name],
+        ["Adresse", formData.address],
+        ["Ville", formData.city],
+        ["Code postal", formData.postal_code],
+        ["Téléphone", formData.phone],
+        ["Email", formData.email],
+      ];
+      const missing = required.filter(([, value]) => value.trim() === "").map(([label]) => label);
+      if (missing.length) {
+        setError(`Champs obligatoires manquants : ${missing.join(", ")}.`);
+        return;
+      }
+
+      const { data: updated, error: updateError } = await supabase
         .from("auto_ecoles")
         .update({
-          name: formData.name,
-          address: formData.address,
-          city: formData.city,
-          postal_code: formData.postal_code,
-          phone: formData.phone,
-          email: formData.email,
-          website: formData.website,
-          description: formData.description,
+          name: formData.name.trim(),
+          address: formData.address.trim(),
+          city: formData.city.trim(),
+          postal_code: formData.postal_code.trim(),
+          phone: formData.phone.trim(),
+          email: formData.email.trim(),
+          website: formData.website.trim() || null,
+          description: formData.description.trim() || null,
         })
-        .eq("id", autoEcole.id);
+        .eq("id", autoEcole.id)
+        .select("id")
+        .maybeSingle();
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // An UPDATE refused by RLS returns no error and no row; without this the
+      // page claimed success while nothing had been saved.
+      if (!updated) {
+        throw new Error("Modifications non enregistrées. Reconnectez-vous puis réessayez.");
+      }
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error updating profile:", err);
+      setError(err?.message || "Impossible d'enregistrer vos modifications. Réessayez.");
     } finally {
       setSaving(false);
     }
@@ -157,6 +190,13 @@ export default function ProfilePage() {
             <div className="mb-6 p-4 bg-green-50 text-green-600 rounded-xl flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5" />
               Modifications enregistrées avec succès !
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
 

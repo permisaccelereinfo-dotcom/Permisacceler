@@ -4,7 +4,15 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { Check, ChevronDown, Loader2 } from "lucide-react";
+import Image from "next/image";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Loader2,
+  ShieldCheck,
+} from "lucide-react";
+import { FunnelProgress } from "@/app/components/funnel-progress";
 
 type StageDetails = {
   id: string;
@@ -22,7 +30,7 @@ type StageDetails = {
 export default function RecapitulatifPage() {
   const params = useParams();
   const id = params?.id as string;
-  
+
   const [stage, setStage] = useState<StageDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
@@ -30,7 +38,7 @@ export default function RecapitulatifPage() {
   useEffect(() => {
     async function fetchStage() {
       if (!id) return;
-      
+
       const { data, error } = await supabase
         .from("stages")
         .select(`
@@ -47,7 +55,7 @@ export default function RecapitulatifPage() {
         `)
         .eq("id", id)
         .maybeSingle();
-        
+
       if (data) {
         setStage(data as any);
       } else if (error) {
@@ -55,29 +63,34 @@ export default function RecapitulatifPage() {
       }
       setLoading(false);
     }
-    
+
     fetchStage();
   }, [id, supabase]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#fafbfc] pt-16 pb-32 flex justify-center items-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#3647AC]" />
+      <div className="min-h-screen bg-[#FAF8F5] pt-16 pb-32 flex justify-center items-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1278CC]" />
       </div>
     );
   }
 
   if (!stage) {
     return (
-      <div className="min-h-screen bg-[#fafbfc] pt-16 pb-32 flex flex-col justify-center items-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Stage introuvable</h1>
-        <p className="text-gray-500">Le stage que vous recherchez n'existe pas ou n'est plus disponible.</p>
-        <button 
-          onClick={() => window.history.back()}
-          className="mt-8 bg-[#3647AC] text-white px-6 py-2 rounded-full font-medium hover:bg-[#2A3786] transition-colors"
+      <div className="min-h-screen bg-[#FAF8F5] pt-16 pb-32 flex flex-col justify-center items-center px-4 text-center">
+        <h1 className="text-2xl font-extrabold tracking-tight text-[#00234b] mb-3">
+          Stage introuvable
+        </h1>
+        <p className="text-gray-500">
+          Le stage que vous recherchez n&apos;existe pas ou n&apos;est plus disponible.
+        </p>
+        <Link
+          href="/recherche"
+          className="mt-8 inline-flex items-center gap-2 bg-[#00234b] hover:bg-black text-white px-7 py-3 rounded-full font-bold transition-colors"
         >
-          Retour
-        </button>
+          <ArrowLeft className="w-4 h-4" />
+          Retour à la recherche
+        </Link>
       </div>
     );
   }
@@ -85,23 +98,23 @@ export default function RecapitulatifPage() {
   // Format dates
   const start = new Date(stage.start_date);
   const end = new Date(stage.end_date);
-  
+
   const formatDay = (d: Date) => {
     const day = d.getDate();
     return day === 1 ? "1er" : day.toString();
   };
-  
+
   const startStr = `${formatDay(start)} ${start.toLocaleDateString('fr-FR', { month: 'long' })}`;
   const endStr = `${formatDay(end)} ${end.toLocaleDateString('fr-FR', { month: 'long' })}`;
   const dateText = `Du ${startStr} au ${endStr}`;
-  
+
   // Calculate duration
   const diffTime = Math.abs(end.getTime() - start.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // inclusive
 
   // Mock CPF Price (+~16%)
   const cpfPrice = Math.round(stage.price * 1.166);
-  
+
   // Location formatting
   const region = stage.auto_ecole?.region || "ILE DE FRANCE";
   const mockZip = region === "ILE DE FRANCE" ? "93160" : "30000";
@@ -114,129 +127,129 @@ export default function RecapitulatifPage() {
   // Derived attributes
   const isAuto = stage.title.toLowerCase().includes("automatique");
   const transmission = isAuto ? "Boîte automatique" : "Boîte manuelle";
-  
+
   // Driving hours calculation from title (e.g. 30H -> 26H driving, 4H theory)
   const match = stage.stage_type?.match(/(\d+)H/);
   const totalHours = match ? parseInt(match[1]) : 30;
   const theoryHours = 4;
   const drivingHours = totalHours > theoryHours ? totalHours - theoryHours : totalHours;
 
+  const practicalInfos = [
+    { img: "/icons/driving.png", text: transmission },
+    { img: "/icons/calendar.png", text: dateText },
+    { img: "/icons/location-mark.png", text: locationText },
+  ];
+
+  const included = [
+    `Durée du stage : ${diffDays} jours`,
+    `${drivingHours}H de conduite`,
+    `${theoryHours}H d'écoute pédagogique en voiture`,
+    "1 moniteur unique",
+    "1 date d'examen 100% garantie",
+    "Délai : 3 à 10 jours après le stage ⚡",
+  ];
+
   return (
-    <div className="min-h-screen bg-[#fafbfc] pt-12 pb-24">
+    <div className="min-h-screen bg-[#FAF8F5] pt-10 pb-24">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Progress Bar */}
-        <div className="flex flex-col items-center justify-center mb-12">
-          <span className="text-gray-400 text-xs mb-3 font-medium">Récapitulatif</span>
-          <div className="flex gap-2 sm:gap-4 items-center">
-            <div className="w-8 sm:w-12 h-1 bg-[#3647AC] rounded-full"></div>
-            <div className="w-8 sm:w-12 h-1 bg-[#3647AC] rounded-full"></div>
-            <div className="w-8 sm:w-12 h-1 bg-[#3647AC] rounded-full"></div>
-            <div className="w-8 sm:w-12 h-1 bg-[#3647AC] rounded-full"></div>
-            <div className="w-8 sm:w-12 h-1 bg-gray-200 rounded-full"></div>
-            <div className="w-8 sm:w-12 h-1 bg-gray-200 rounded-full"></div>
-          </div>
-        </div>
+        <FunnelProgress current={2} />
 
         {/* HEADER */}
-        <div className="text-center mb-10">
-          <h1 className="text-[28px] sm:text-[34px] font-medium text-gray-900 mb-2 tracking-tight" style={{ fontFamily: 'var(--ds-nb---font--primary)' }}>
-            Votre récapitulatif d'inscription
+        <div className="text-center mb-8">
+          <h1 className="text-[26px] sm:text-[34px] font-extrabold text-[#00234b] tracking-tight mb-2">
+            Votre récapitulatif d&apos;inscription
           </h1>
           <p className="text-gray-600 text-[15px]">
-            Vérifiez les caractéristiques de votre stage.
+            Vérifiez les caractéristiques de votre stage avant de continuer.
           </p>
         </div>
 
         {/* CARD */}
-        <div className="max-w-[420px] mx-auto">
-          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-            <div className="p-8">
-              <div className="text-center mb-6">
-                <h2 className="text-[26px] text-gray-900 mb-2 tracking-tight" style={{ fontFamily: 'var(--ds-nb---font--primary)' }}>
-                  {stage.stage_type || "Stage intensif"}
-                </h2>
-                <div className="text-[44px] font-bold text-gray-900 leading-none tracking-tight mb-3">
-                  {stage.price.toLocaleString("fr-FR")} €
-                </div>
-                <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
-                  PRIX CPF : {cpfPrice.toLocaleString("fr-FR")} €
-                </div>
+        <div className="max-w-[460px] mx-auto">
+          <div className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-lg shadow-gray-200/60">
+            {/* Price header */}
+            <div className="bg-[#00234b] px-8 py-7 text-center">
+              <h2 className="text-[15px] font-bold text-white/80 uppercase tracking-wider mb-2">
+                {stage.stage_type || "Stage intensif"}
+              </h2>
+              <div className="text-[44px] font-extrabold text-white leading-none tracking-tight mb-2">
+                {stage.price.toLocaleString("fr-FR")} €
               </div>
-
-              <div className="border-t border-gray-200 mb-6"></div>
-
-              <div className="mb-6">
-                <h3 className="font-bold text-gray-900 text-[14.5px] mb-4">Informations pratiques :</h3>
-                <ul className="space-y-3.5">
-                  <li className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded bg-[#E8F0FE] flex items-center justify-center">
-                      <Check className="w-3.5 h-3.5 text-[#3647AC]" strokeWidth={3} />
-                    </div>
-                    <span className="text-[14.5px] text-gray-700">{transmission}</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded bg-[#E8F0FE] flex items-center justify-center">
-                      <Check className="w-3.5 h-3.5 text-[#3647AC]" strokeWidth={3} />
-                    </div>
-                    <span className="text-[14.5px] text-gray-700">{dateText}</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-5 h-5 mt-0.5 rounded bg-[#E8F0FE] flex items-center justify-center">
-                      <Check className="w-3.5 h-3.5 text-[#3647AC]" strokeWidth={3} />
-                    </div>
-                    <span className="text-[14.5px] text-gray-700 leading-relaxed pr-2">{locationText}</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mb-8">
-                <h3 className="font-bold text-gray-900 text-[14.5px] mb-4">Comprend :</h3>
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-3">
-                    <Check className="w-4 h-4 text-gray-800 mt-0.5 flex-shrink-0" strokeWidth={2.5} />
-                    <span className="text-[14.5px] text-gray-700">Durée du stage : {diffDays} jours</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Check className="w-4 h-4 text-gray-800 mt-0.5 flex-shrink-0" strokeWidth={2.5} />
-                    <span className="text-[14.5px] text-gray-700">{drivingHours}H de conduite</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Check className="w-4 h-4 text-gray-800 mt-0.5 flex-shrink-0" strokeWidth={2.5} />
-                    <span className="text-[14.5px] text-gray-700">{theoryHours}H d'écoute pédagogique en voiture</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Check className="w-4 h-4 text-gray-800 mt-0.5 flex-shrink-0" strokeWidth={2.5} />
-                    <span className="text-[14.5px] text-gray-700">1 moniteur unique</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Check className="w-4 h-4 text-gray-800 mt-0.5 flex-shrink-0" strokeWidth={2.5} />
-                    <span className="text-[14.5px] text-gray-700">1 date d'examen 100% garantie</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Check className="w-4 h-4 text-gray-800 mt-0.5 flex-shrink-0" strokeWidth={2.5} />
-                    <span className="text-[14.5px] text-gray-700">Délai : 3 à 10 jours après le stage ⚡</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="text-center">
-                <p className="text-[11px] text-gray-400 mb-4">Planning d'heures communiqué avant le début du stage</p>
-                <button className="text-[13px] text-gray-500 font-medium inline-flex items-center gap-1 hover:text-gray-800 transition-colors">
-                  Voir plus
-                  <ChevronDown className="w-4 h-4" />
-                </button>
+              <div className="text-[11px] font-semibold text-white/60 uppercase tracking-widest">
+                Prix CPF : {cpfPrice.toLocaleString("fr-FR")} €
               </div>
             </div>
+
+            <div className="p-8">
+              <div className="mb-7">
+                <h3 className="font-extrabold text-[#00234b] text-[14.5px] mb-4">
+                  Informations pratiques
+                </h3>
+                <ul className="space-y-3.5">
+                  {practicalInfos.map(({ img, text }, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <Image
+                        src={img}
+                        alt=""
+                        width={30}
+                        height={30}
+                        className="flex-shrink-0"
+                      />
+                      <span className="text-[14.5px] text-gray-700 leading-relaxed pt-0.5">
+                        {text}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="border-t border-gray-100 mb-7" />
+
+              <div className="mb-7">
+                <h3 className="font-extrabold text-[#00234b] text-[14.5px] mb-4">
+                  Comprend
+                </h3>
+                <ul className="space-y-3">
+                  {included.map((item, i) => (
+                    <li key={i} className="flex items-start gap-3">
+                      <span className="flex-shrink-0 w-5 h-5 mt-0.5 rounded-full bg-[#e5f4fd] flex items-center justify-center">
+                        <Check className="w-3 h-3 text-[#1278CC]" strokeWidth={3} />
+                      </span>
+                      <span className="text-[14.5px] text-gray-700">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <p className="text-[12px] text-gray-400 text-center">
+                Planning d&apos;heures communiqué avant le début du stage
+              </p>
+            </div>
           </div>
-          
-          <div className="mt-8 text-center">
-            <Link 
+
+          <div className="mt-7 space-y-4">
+            <Link
               href={`/checkout/${stage.id}`}
-              className="inline-block bg-[#3647AC] text-white px-10 py-3.5 rounded-full font-medium text-[15px] hover:bg-[#2A3786] transition-colors shadow-sm"
+              className="w-full flex items-center justify-center gap-2 bg-[#ffcb00] hover:bg-[#f0bd00] text-[#00234b] py-4 rounded-full font-extrabold text-[15px] transition-all shadow-xl shadow-amber-200/60 hover:-translate-y-0.5 active:translate-y-0"
             >
-              Réserver
+              Réserver ce stage
+              <ArrowRight className="w-4 h-4" />
             </Link>
+
+            <div className="flex items-center justify-center gap-2 text-[12px] text-gray-500">
+              <ShieldCheck className="w-4 h-4 text-[#5FA82B]" />
+              Paiement sécurisé — 4x sans frais possible
+            </div>
+
+            <div className="text-center">
+              <Link
+                href="/recherche"
+                className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-gray-500 hover:text-[#00234b] transition-colors"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Retour aux résultats
+              </Link>
+            </div>
           </div>
         </div>
       </div>

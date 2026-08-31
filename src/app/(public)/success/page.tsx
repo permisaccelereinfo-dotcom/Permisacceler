@@ -2,8 +2,9 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, Loader2, ArrowRight, AlertCircle, Clock3 } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
 
@@ -106,8 +107,8 @@ function SuccessContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#fafbfc] flex flex-col justify-center items-center gap-4 px-4 text-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#3647AC]" />
+      <div className="min-h-screen bg-[#FAF8F5] flex flex-col justify-center items-center gap-4 px-4 text-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1278CC]" />
         <p className="text-sm text-gray-600">
           Paiement reçu. Confirmation de la réservation en cours...
         </p>
@@ -120,29 +121,22 @@ function SuccessContent() {
   const hasPendingConfirmation = !error && !isConfirmed && !isCancelled;
 
   return (
-    <div className="min-h-screen bg-[#fafbfc] flex flex-col justify-center items-center px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-        <div
-          className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 ${
+    <div className="min-h-screen bg-[#FAF8F5] flex flex-col justify-center items-center px-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-lg shadow-gray-200/60 border border-gray-200/80 p-8 text-center">
+        <Image
+          src={
             error || isCancelled
-              ? "bg-amber-100"
+              ? "/icons/alarm-bell.png"
               : hasPendingConfirmation
-                ? "bg-blue-100"
-                : "bg-green-100"
-          }`}
-        >
-          {error || isCancelled ? (
-            <AlertCircle className="w-8 h-8 text-amber-600" />
-          ) : hasPendingConfirmation ? (
-            <Clock3 className="w-8 h-8 text-blue-600" />
-          ) : (
-            <CheckCircle2 className="w-8 h-8 text-green-600" />
-          )}
-        </div>
-        <h1
-          className="text-2xl font-semibold text-gray-900 mb-3"
-          style={{ fontFamily: "var(--ds-nb---font--primary)" }}
-        >
+                ? "/icons/alarm-clock.png"
+                : "/icons/validation.png"
+          }
+          alt=""
+          width={96}
+          height={96}
+          className="mx-auto mb-6"
+        />
+        <h1 className="text-2xl font-extrabold tracking-tight text-[#00234b] mb-3">
           {error || isCancelled
             ? "Paiement à vérifier"
             : hasPendingConfirmation
@@ -162,14 +156,14 @@ function SuccessContent() {
         <div className="space-y-3">
           <Link
             href="/mon-compte/reservations"
-            className="w-full flex items-center justify-center gap-2 bg-[#3647AC] text-white py-3.5 rounded-full font-medium text-[15px] hover:bg-[#2A3786] transition-colors"
+            className="w-full flex items-center justify-center gap-2 bg-[#00234b] hover:bg-black text-white py-3.5 rounded-full font-bold text-[15px] transition-colors"
           >
             Voir ma réservation
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
             href="/"
-            className="w-full flex items-center justify-center py-3.5 rounded-full font-medium text-[15px] text-gray-600 hover:bg-gray-50 transition-colors"
+            className="w-full flex items-center justify-center py-3.5 rounded-full font-semibold text-[15px] text-gray-600 hover:bg-gray-50 transition-colors"
           >
             Retour à l&apos;accueil
           </Link>
@@ -183,8 +177,8 @@ export default function SuccessPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#fafbfc] flex justify-center items-center">
-          <Loader2 className="w-8 h-8 animate-spin text-[#3647AC]" />
+        <div className="min-h-screen bg-[#FAF8F5] flex justify-center items-center">
+          <Loader2 className="w-8 h-8 animate-spin text-[#1278CC]" />
         </div>
       }
     >

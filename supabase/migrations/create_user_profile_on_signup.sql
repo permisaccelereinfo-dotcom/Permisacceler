@@ -13,7 +13,7 @@ BEGIN
   -- register_auto_ecole upgrades the role via its own upsert.
   INSERT INTO public.users (id, email, name, phone)
   VALUES (
-    NEW.id,
+    NEW.id, 
     COALESCE(NEW.email, ''),
     COALESCE(
       NULLIF(NEW.raw_user_meta_data->>'name', ''),

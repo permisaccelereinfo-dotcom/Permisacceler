@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, type ReactNode } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Loader2 } from "lucide-react";
+import Image from "next/image";
+import { AlertCircle, Check, Loader2, Lock } from "lucide-react";
+import { FunnelProgress } from "@/app/components/funnel-progress";
 
 type StageDetails = {
   id: string;
@@ -18,10 +20,135 @@ type StageDetails = {
   };
 };
 
+const inputClass =
+  "w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-[15px] focus:outline-none focus:border-[#1278CC] focus:ring-2 focus:ring-[#1278CC]/15 transition-shadow";
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <label className="block text-[13px] font-semibold text-[#00234b] mb-1.5">
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function ChoiceGroup({
+  name,
+  value,
+  options,
+  onSelect,
+}: {
+  name: string;
+  value: string;
+  options: { id: string; label: string }[];
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row gap-3">
+      {options.map((option) => {
+        const selected = value === option.id;
+        return (
+          <label
+            key={option.id}
+            className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-colors ${
+              selected
+                ? "border-[#1278CC] bg-[#e5f4fd]"
+                : "border-gray-200 bg-white hover:border-gray-300"
+            }`}
+          >
+            <span
+              className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ${
+                selected ? "border-[#1278CC] bg-[#1278CC]" : "border-gray-300 bg-white"
+              }`}
+            >
+              {selected && <Check className="w-3 h-3 text-white" strokeWidth={3.5} />}
+            </span>
+            <span
+              className={`text-[14px] leading-snug ${
+                selected ? "font-semibold text-[#00234b]" : "text-gray-700"
+              }`}
+            >
+              {option.label}
+            </span>
+            <input
+              type="radio"
+              name={name}
+              value={option.id}
+              checked={selected}
+              onChange={() => onSelect(option.id)}
+              className="hidden"
+            />
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+function ChoiceList({
+  name,
+  value,
+  options,
+  onSelect,
+}: {
+  name: string;
+  value: string;
+  options: { id: string; label: string }[];
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-2.5">
+      {options.map((option) => {
+        const selected = value === option.id;
+        return (
+          <label
+            key={option.id}
+            className={`flex items-center gap-3 px-4 py-3.5 rounded-xl border-2 cursor-pointer transition-colors ${
+              selected
+                ? "border-[#1278CC] bg-[#e5f4fd]"
+                : "border-gray-200 bg-white hover:border-gray-300"
+            }`}
+          >
+            <span
+              className={`w-5 h-5 shrink-0 rounded-full border-2 flex items-center justify-center ${
+                selected ? "border-[#1278CC] bg-[#1278CC]" : "border-gray-300 bg-white"
+              }`}
+            >
+              {selected && <Check className="w-3 h-3 text-white" strokeWidth={3.5} />}
+            </span>
+            <span
+              className={`text-[14.5px] leading-snug ${
+                selected ? "font-semibold text-[#00234b]" : "text-gray-700"
+              }`}
+            >
+              {option.label}
+            </span>
+            <input
+              type="radio"
+              name={name}
+              value={option.id}
+              checked={selected}
+              onChange={() => onSelect(option.id)}
+              className="hidden"
+            />
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
+const YES_NO = [
+  { id: "oui", label: "Oui" },
+  { id: "non", label: "Non" },
+];
+
 export default function CheckoutPage() {
   const params = useParams();
   const id = params?.id as string;
-  
+
   const [stage, setStage] = useState<StageDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingSubmit, setLoadingSubmit] = useState(false);
@@ -42,16 +169,19 @@ export default function CheckoutPage() {
     adresse: "",
     complementAdresse: "",
     codePostal: "",
-    
+
     // Questions
     handicap: "",
     logement: "",
     dejaPassePermis: "",
     aLeCode: "",
     neph: "",
-    
+
     // Raison
     raison: "",
+
+    // Attestation
+    attestation20h: false,
   });
 
   useEffect(() => {
@@ -127,14 +257,14 @@ export default function CheckoutPage() {
         `)
         .eq("id", id)
         .single();
-        
+
       if (stageData) {
         setStage(stageData as any);
       }
-      
+
       setLoading(false);
     }
-    
+
     loadData();
   }, [id, supabase]);
 
@@ -152,20 +282,20 @@ export default function CheckoutPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#fafbfc] flex justify-center items-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#3647AC]" />
+      <div className="min-h-screen bg-[#FAF8F5] flex justify-center items-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1278CC]" />
       </div>
     );
   }
 
   if (!stage) {
     return (
-      <div className="min-h-screen bg-[#fafbfc] flex flex-col justify-center items-center">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">Erreur</h1>
+      <div className="min-h-screen bg-[#FAF8F5] flex flex-col justify-center items-center px-4 text-center">
+        <h1 className="text-2xl font-extrabold tracking-tight text-[#00234b] mb-3">Erreur</h1>
         <p className="text-gray-500">Stage introuvable.</p>
-        <button 
+        <button
           onClick={() => window.history.back()}
-          className="mt-8 bg-[#3647AC] text-white px-6 py-2 rounded-full font-medium hover:bg-[#2A3786]"
+          className="mt-8 bg-[#00234b] hover:bg-black text-white px-7 py-3 rounded-full font-bold transition-colors"
         >
           Retour
         </button>
@@ -180,7 +310,7 @@ export default function CheckoutPage() {
   const endStr = `${end.getDate() === 1 ? '1er' : end.getDate()} ${end.toLocaleDateString('fr-FR', { month: 'short' })}`;
   const isAuto = stage.title.toLowerCase().includes("automatique");
   const transmission = isAuto ? "Boîte Automatique" : "Boîte Manuelle";
-  
+
   const region = stage.auto_ecole?.region || "";
   const locationText =
     [stage.auto_ecole?.name, region].filter(Boolean).join(" - ") ||
@@ -201,6 +331,11 @@ export default function CheckoutPage() {
       // 0. Validation
       if (!formData.raison) {
         throw new Error("Veuillez sélectionner une raison pour votre permis accéléré.");
+      }
+      if (!formData.attestation20h) {
+        throw new Error(
+          "Veuillez attester avoir déjà effectué 20h de conduite dans une école de conduite."
+        );
       }
 
       // 1. If not logged in, create account
@@ -277,46 +412,36 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafbfc] pt-12 pb-24">
+    <div className="min-h-screen bg-[#FAF8F5] pt-10 pb-24">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Progress Bar */}
-        <div className="flex flex-col items-center justify-center mb-12">
-          <div className="flex gap-2 sm:gap-4 items-center">
-            <div className="w-8 sm:w-12 h-1 bg-[#3647AC] rounded-full"></div>
-            <div className="w-8 sm:w-12 h-1 bg-[#3647AC] rounded-full"></div>
-            <div className="w-8 sm:w-12 h-1 bg-[#3647AC] rounded-full"></div>
-            <div className="w-8 sm:w-12 h-1 bg-[#3647AC] rounded-full"></div>
-            <div className="w-8 sm:w-12 h-1 bg-[#3647AC] rounded-full"></div>
-            <div className="w-8 sm:w-12 h-1 bg-gray-200 rounded-full"></div>
-          </div>
-        </div>
+        <FunnelProgress current={3} />
 
         {/* HEADER */}
-        <div className="text-center mb-12">
-          <h1 className="text-[28px] sm:text-[36px] font-medium text-gray-900 mb-3 tracking-tight" style={{ fontFamily: 'var(--ds-nb---font--primary)' }}>
+        <div className="text-center mb-10">
+          <h1 className="text-[26px] sm:text-[34px] font-extrabold text-[#00234b] tracking-tight mb-2">
             Vos informations sont-elles correctes ?
           </h1>
           <p className="text-gray-600 text-[15px]">
             Assurez-vous que vos coordonnées personnelles sont correctes.
           </p>
           {errorMsg && (
-            <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-lg text-sm max-w-2xl mx-auto">
-              {errorMsg}
+            <div className="mt-5 flex items-start gap-2.5 text-left p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm max-w-2xl mx-auto">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
             </div>
           )}
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-12">
-          
+        <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
+
           {/* LEFT COLUMN: FORM */}
-          <div className="flex-1 lg:max-w-2xl">
+          <div className="flex-1 lg:max-w-2xl space-y-6">
 
             {/* Connected banner */}
             {user && (
-              <div className="flex items-center gap-3 mb-6 px-4 py-3 bg-green-50 border border-green-200 rounded-xl">
+              <div className="flex items-center gap-3 px-4 py-3 bg-green-50 border border-green-200 rounded-xl">
                 <div className="w-7 h-7 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  <Check className="w-4 h-4 text-white" strokeWidth={3} />
                 </div>
                 <div>
                   <p className="text-[13px] font-semibold text-green-800">Connecté en tant que</p>
@@ -325,262 +450,293 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            <div className="space-y-4 mb-10">
-              <input
-                type="text"
-                name="prenom"
-                placeholder="Prénom"
-                value={formData.prenom}
-                onChange={handleChange}
-                className="w-full px-4 py-3.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#3647AC] focus:ring-1 focus:ring-[#3647AC] text-[15px]"
-              />
-              <input
-                type="text"
-                name="nom"
-                placeholder="Nom"
-                value={formData.nom}
-                onChange={handleChange}
-                className="w-full px-4 py-3.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#3647AC] focus:ring-1 focus:ring-[#3647AC] text-[15px]"
-              />
-              <input
-                type="email"
-                name="email"
-                placeholder="Email"
-                value={formData.email}
-                onChange={handleChange}
-                readOnly={!!user}
-                className={`w-full px-4 py-3.5 rounded-lg border text-[15px] focus:outline-none ${
-                  user
-                    ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-                    : "border-gray-200 focus:border-[#3647AC] focus:ring-1 focus:ring-[#3647AC]"
-                }`}
-              />
-              
-              {!user && (
-                <input
-                  type="password"
-                  name="password"
-                  placeholder="Créer un mot de passe (min. 6 caractères)"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#3647AC] focus:ring-1 focus:ring-[#3647AC] text-[15px]"
-                />
-              )}
+            {/* Coordonnées */}
+            <section className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6 sm:p-7">
+              <h2 className="text-[18px] font-extrabold tracking-tight text-[#00234b] mb-5">
+                Vos coordonnées
+              </h2>
 
-              <input
-                type="tel"
-                name="telephone"
-                placeholder="Téléphone"
-                value={formData.telephone}
-                onChange={handleChange}
-                className="w-full px-4 py-3.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#3647AC] focus:ring-1 focus:ring-[#3647AC] text-[15px]"
-              />
-              <input
-                type="date"
-                name="dateNaissance"
-                placeholder="Date de naissance"
-                value={formData.dateNaissance}
-                onChange={handleChange}
-                className="w-full px-4 py-3.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#3647AC] focus:ring-1 focus:ring-[#3647AC] text-[15px] text-gray-500"
-              />
-
-              <input
-                type="text"
-                name="adresse"
-                placeholder="Adresse"
-                value={formData.adresse}
-                onChange={handleChange}
-                className="w-full px-4 py-3.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#3647AC] focus:ring-1 focus:ring-[#3647AC] text-[15px]"
-              />
-
-              <input
-                type="text"
-                name="codePostal"
-                placeholder="Code postal - Ville"
-                value={formData.codePostal}
-                onChange={handleChange}
-                className="w-full px-4 py-3.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#3647AC] focus:ring-1 focus:ring-[#3647AC] text-[15px]"
-              />
-            </div>
-
-            <div className="space-y-10">
-              
-              {/* Raison de permis */}
-              <div>
-                <h3 className="text-[17px] font-semibold text-gray-900 mb-4">Raison de permis accéléré ?</h3>
-                <div className="space-y-3">
-                  {[
-                    { id: 'annulation', label: 'Annulation / Suspension / Invalidation' },
-                    { id: 'pas_de_date', label: 'Je ne trouve pas de date d\'examen' },
-                    { id: 'manque_temps', label: 'Manque de temps' },
-                    { id: 'representation', label: 'Représentation suite à un échec' }
-                  ].map((option) => (
-                    <label key={option.id} className="flex items-center gap-3 cursor-pointer group">
-                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${formData.raison === option.id ? 'border-[#3647AC]' : 'border-gray-300 group-hover:border-[#3647AC]'}`}>
-                        {formData.raison === option.id && <div className="w-2.5 h-2.5 bg-[#3647AC] rounded-full"></div>}
-                      </div>
-                      <span className="text-[15px] text-gray-700">{option.label}</span>
-                      <input 
-                        type="radio" 
-                        name="raison" 
-                        value={option.id} 
-                        checked={formData.raison === option.id} 
-                        onChange={() => handleRadioChange('raison', option.id)} 
-                        className="hidden" 
-                      />
-                    </label>
-                  ))}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Prénom">
+                    <input
+                      type="text"
+                      name="prenom"
+                      placeholder="Prénom"
+                      value={formData.prenom}
+                      onChange={handleChange}
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="Nom">
+                    <input
+                      type="text"
+                      name="nom"
+                      placeholder="Nom"
+                      value={formData.nom}
+                      onChange={handleChange}
+                      className={inputClass}
+                    />
+                  </Field>
                 </div>
-              </div>
 
-              {/* Deja passe le permis */}
-              <div>
-                <h3 className="text-[17px] font-semibold text-gray-900 mb-4">As-tu déjà passé le permis ?</h3>
-                <div className="flex gap-6">
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${formData.dejaPassePermis === 'oui' ? 'border-[#3647AC]' : 'border-gray-300'}`}>
-                      {formData.dejaPassePermis === 'oui' && <div className="w-2.5 h-2.5 bg-[#3647AC] rounded-full"></div>}
-                    </div>
-                    <span className="text-[15px] text-gray-700">Oui</span>
-                    <input type="radio" className="hidden" name="dejaPassePermis" checked={formData.dejaPassePermis === 'oui'} onChange={() => handleRadioChange('dejaPassePermis', 'oui')} />
-                  </label>
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${formData.dejaPassePermis === 'non' ? 'border-[#3647AC]' : 'border-gray-300'}`}>
-                      {formData.dejaPassePermis === 'non' && <div className="w-2.5 h-2.5 bg-[#3647AC] rounded-full"></div>}
-                    </div>
-                    <span className="text-[15px] text-gray-700">Non</span>
-                    <input type="radio" className="hidden" name="dejaPassePermis" checked={formData.dejaPassePermis === 'non'} onChange={() => handleRadioChange('dejaPassePermis', 'non')} />
-                  </label>
+                <Field label="Email">
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="Email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    readOnly={!!user}
+                    className={
+                      user
+                        ? `${inputClass} bg-gray-50 text-gray-400 cursor-not-allowed focus:border-gray-200 focus:ring-0`
+                        : inputClass
+                    }
+                  />
+                </Field>
+
+                {!user && (
+                  <Field label="Mot de passe">
+                    <input
+                      type="password"
+                      name="password"
+                      placeholder="Créer un mot de passe (min. 6 caractères)"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className={inputClass}
+                    />
+                  </Field>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Field label="Téléphone">
+                    <input
+                      type="tel"
+                      name="telephone"
+                      placeholder="06 12 34 56 78"
+                      value={formData.telephone}
+                      onChange={handleChange}
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="Date de naissance">
+                    <input
+                      type="date"
+                      name="dateNaissance"
+                      value={formData.dateNaissance}
+                      onChange={handleChange}
+                      className={`${inputClass} text-gray-700`}
+                    />
+                  </Field>
                 </div>
-              </div>
 
-              {/* Code */}
-              <div>
-                <h3 className="text-[17px] font-semibold text-gray-900 mb-4">As-tu obtenu ton code ?</h3>
-                <div className="flex gap-6">
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${formData.aLeCode === 'oui' ? 'border-[#3647AC]' : 'border-gray-300'}`}>
-                      {formData.aLeCode === 'oui' && <div className="w-2.5 h-2.5 bg-[#3647AC] rounded-full"></div>}
-                    </div>
-                    <span className="text-[15px] text-gray-700">Oui</span>
-                    <input type="radio" className="hidden" name="aLeCode" checked={formData.aLeCode === 'oui'} onChange={() => handleRadioChange('aLeCode', 'oui')} />
-                  </label>
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${formData.aLeCode === 'non' ? 'border-[#3647AC]' : 'border-gray-300'}`}>
-                      {formData.aLeCode === 'non' && <div className="w-2.5 h-2.5 bg-[#3647AC] rounded-full"></div>}
-                    </div>
-                    <span className="text-[15px] text-gray-700">Non</span>
-                    <input type="radio" className="hidden" name="aLeCode" checked={formData.aLeCode === 'non'} onChange={() => handleRadioChange('aLeCode', 'non')} />
-                  </label>
+                <Field label="Adresse">
+                  <input
+                    type="text"
+                    name="adresse"
+                    placeholder="12 rue de la République"
+                    value={formData.adresse}
+                    onChange={handleChange}
+                    className={inputClass}
+                  />
+                </Field>
+
+                <Field label="Code postal - Ville">
+                  <input
+                    type="text"
+                    name="codePostal"
+                    placeholder="75011 Paris"
+                    value={formData.codePostal}
+                    onChange={handleChange}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+            </section>
+
+            {/* Profil de conduite */}
+            <section className="bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6 sm:p-7">
+              <h2 className="text-[18px] font-extrabold tracking-tight text-[#00234b] mb-6">
+                Votre profil de conduite
+              </h2>
+
+              <div className="space-y-8">
+                {/* Raison de permis */}
+                <div>
+                  <h3 className="text-[15px] font-bold text-[#00234b] mb-3.5">
+                    Raison de permis accéléré ?
+                  </h3>
+                  <ChoiceList
+                    name="raison"
+                    value={formData.raison}
+                    onSelect={(v) => handleRadioChange("raison", v)}
+                    options={[
+                      { id: 'annulation', label: 'Annulation / Suspension / Invalidation' },
+                      { id: 'pas_de_date', label: "Je ne trouve pas de date d'examen" },
+                      { id: 'manque_temps', label: 'Manque de temps' },
+                      { id: 'representation', label: 'Représentation suite à un échec' },
+                    ]}
+                  />
                 </div>
-              </div>
 
-              {/* Handicap */}
-              <div>
-                <h3 className="text-[17px] font-semibold text-gray-900 mb-4 leading-snug">Avez-vous un handicap nécessitant un certificat médical pour vous inscrire en auto-école ?</h3>
-                <div className="flex gap-6">
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${formData.handicap === 'oui' ? 'border-[#3647AC]' : 'border-gray-300'}`}>
-                      {formData.handicap === 'oui' && <div className="w-2.5 h-2.5 bg-[#3647AC] rounded-full"></div>}
-                    </div>
-                    <span className="text-[15px] text-gray-700">Oui</span>
-                    <input type="radio" className="hidden" name="handicap" checked={formData.handicap === 'oui'} onChange={() => handleRadioChange('handicap', 'oui')} />
-                  </label>
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${formData.handicap === 'non' ? 'border-[#3647AC]' : 'border-gray-300'}`}>
-                      {formData.handicap === 'non' && <div className="w-2.5 h-2.5 bg-[#3647AC] rounded-full"></div>}
-                    </div>
-                    <span className="text-[15px] text-gray-700">Non</span>
-                    <input type="radio" className="hidden" name="handicap" checked={formData.handicap === 'non'} onChange={() => handleRadioChange('handicap', 'non')} />
-                  </label>
+                {/* Deja passe le permis */}
+                <div>
+                  <h3 className="text-[15px] font-bold text-[#00234b] mb-3.5">
+                    As-tu déjà passé le permis ?
+                  </h3>
+                  <ChoiceGroup
+                    name="dejaPassePermis"
+                    value={formData.dejaPassePermis}
+                    onSelect={(v) => handleRadioChange("dejaPassePermis", v)}
+                    options={YES_NO}
+                  />
                 </div>
-              </div>
 
-              {/* Logement */}
-              <div>
-                <h3 className="text-[17px] font-semibold text-gray-900 mb-4">Avez-vous votre propre logement ?</h3>
-                <div className="flex flex-col sm:flex-row gap-4 sm:gap-8">
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <div className={`w-5 h-5 flex-shrink-0 rounded-full border flex items-center justify-center ${formData.logement === 'oui' ? 'border-[#3647AC]' : 'border-gray-300'}`}>
-                      {formData.logement === 'oui' && <div className="w-2.5 h-2.5 bg-[#3647AC] rounded-full"></div>}
-                    </div>
-                    <span className="text-[15px] text-gray-700">Oui, j'ai des factures à mon nom</span>
-                    <input type="radio" className="hidden" name="logement" checked={formData.logement === 'oui'} onChange={() => handleRadioChange('logement', 'oui')} />
-                  </label>
-                  <label className="flex items-center gap-2.5 cursor-pointer">
-                    <div className={`w-5 h-5 flex-shrink-0 rounded-full border flex items-center justify-center ${formData.logement === 'non' ? 'border-[#3647AC]' : 'border-gray-300'}`}>
-                      {formData.logement === 'non' && <div className="w-2.5 h-2.5 bg-[#3647AC] rounded-full"></div>}
-                    </div>
-                    <span className="text-[15px] text-gray-700">Non, je n'ai pas de factures à mon nom</span>
-                    <input type="radio" className="hidden" name="logement" checked={formData.logement === 'non'} onChange={() => handleRadioChange('logement', 'non')} />
-                  </label>
+                {/* Code */}
+                <div>
+                  <h3 className="text-[15px] font-bold text-[#00234b] mb-3.5">
+                    As-tu obtenu ton code ?
+                  </h3>
+                  <ChoiceGroup
+                    name="aLeCode"
+                    value={formData.aLeCode}
+                    onSelect={(v) => handleRadioChange("aLeCode", v)}
+                    options={YES_NO}
+                  />
                 </div>
-              </div>
 
-              {/* NEPH */}
-              <div>
-                <label className="block text-[15px] text-gray-700 mb-3">Si vous disposez d'un numéro NEPH, renseignez-le (facultatif)</label>
-                <input
-                  type="text"
-                  name="neph"
-                  placeholder="Numéro NEPH"
-                  value={formData.neph}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3.5 rounded-lg border border-gray-200 focus:outline-none focus:border-[#3647AC] focus:ring-1 focus:ring-[#3647AC] text-[15px]"
-                />
-              </div>
+                {/* Handicap */}
+                <div>
+                  <h3 className="text-[15px] font-bold text-[#00234b] mb-3.5 leading-snug">
+                    Avez-vous un handicap nécessitant un certificat médical pour vous inscrire en auto-école ?
+                  </h3>
+                  <ChoiceGroup
+                    name="handicap"
+                    value={formData.handicap}
+                    onSelect={(v) => handleRadioChange("handicap", v)}
+                    options={YES_NO}
+                  />
+                </div>
 
-            </div>
+                {/* Logement */}
+                <div>
+                  <h3 className="text-[15px] font-bold text-[#00234b] mb-3.5">
+                    Avez-vous votre propre logement ?
+                  </h3>
+                  <ChoiceGroup
+                    name="logement"
+                    value={formData.logement}
+                    onSelect={(v) => handleRadioChange("logement", v)}
+                    options={[
+                      { id: 'oui', label: "Oui, j'ai des factures à mon nom" },
+                      { id: 'non', label: "Non, je n'ai pas de factures à mon nom" },
+                    ]}
+                  />
+                </div>
+
+                {/* NEPH */}
+                <Field label="Numéro NEPH (facultatif)">
+                  <input
+                    type="text"
+                    name="neph"
+                    placeholder="Numéro NEPH"
+                    value={formData.neph}
+                    onChange={handleChange}
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+            </section>
           </div>
 
           {/* RIGHT COLUMN: RECAP & TOTAL */}
-          <div className="lg:w-[420px] flex-shrink-0">
-            <div className="bg-white border border-gray-200 rounded-xl p-7 sticky top-8">
-              <h2 className="text-[20px] font-medium text-gray-900 mb-6 tracking-tight">Récapitulatif de votre panier</h2>
-              
+          <div className="lg:w-[400px] flex-shrink-0">
+            <div className="bg-white border border-gray-200/80 rounded-2xl shadow-lg shadow-gray-200/60 p-6 sm:p-7 sticky top-8">
+              <h2 className="text-[19px] font-extrabold tracking-tight text-[#00234b] mb-6">
+                Récapitulatif de votre panier
+              </h2>
+
               <div className="mb-6">
-                <h3 className="text-[15px] text-gray-700 mb-3">Formule</h3>
-                <div className="flex justify-between items-start mb-2">
-                  <span className="font-semibold text-gray-900">{stage.stage_type || "Stage intensif"}</span>
-                  <span className="font-semibold text-gray-900">{stage.price.toLocaleString("fr-FR")},00 €</span>
+                <h3 className="text-[12px] font-bold uppercase tracking-wider text-gray-400 mb-3">
+                  Formule
+                </h3>
+                <div className="flex justify-between items-start mb-2.5 gap-3">
+                  <span className="font-bold text-[#00234b]">{stage.stage_type || "Stage intensif"}</span>
+                  <span className="font-bold text-[#00234b] whitespace-nowrap">{stage.price.toLocaleString("fr-FR")},00 €</span>
                 </div>
-                <ul className="text-[13.5px] text-gray-600 space-y-1.5 list-disc pl-4 marker:text-gray-400">
-                  <li>Du {startStr} au {endStr}</li>
-                  <li>{transmission}</li>
-                  <li>{locationText}</li>
+                <ul className="text-[13.5px] text-gray-600 space-y-1.5">
+                  <li className="flex items-center gap-2">
+                    <span className="w-1 h-1 rounded-full bg-[#1278CC] shrink-0" />
+                    Du {startStr} au {endStr}
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-1 h-1 rounded-full bg-[#1278CC] shrink-0" />
+                    {transmission}
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="w-1 h-1 rounded-full bg-[#1278CC] shrink-0 mt-2" />
+                    {locationText}
+                  </li>
                 </ul>
               </div>
 
-              <div className="border-t border-gray-100 mb-5"></div>
+              <div className="border-t border-gray-100 mb-5" />
 
               <div className="mb-6">
-                <h3 className="text-[15px] text-gray-700 mb-3">Options</h3>
-                <div className="flex justify-between items-start text-[14px]">
-                  <div className="text-gray-600 pr-4">
-                    Accompagnement examen pratique
-                    <br />
+                <h3 className="text-[12px] font-bold uppercase tracking-wider text-gray-400 mb-3">
+                  Options
+                </h3>
+                <div className="flex justify-between items-start text-[14px] gap-3">
+                  <div className="text-gray-600">
+                    Accompagnement examen pratique{" "}
                     <span className="text-gray-400">(obligatoire)</span>
                   </div>
                   <span className="font-medium text-gray-900 whitespace-nowrap">{optionsPrice.toLocaleString("fr-FR")},00 €</span>
                 </div>
               </div>
 
-              <div className="border-t border-gray-200 mb-6"></div>
+              <div className="border-t-2 border-gray-100 mb-5" />
 
-              <div className="mb-8">
+              <div className="mb-7">
                 <div className="flex justify-between items-end mb-1">
-                  <span className="text-[18px] font-medium text-gray-900">Montant total</span>
-                  <span className="text-[24px] font-bold text-gray-900 leading-none">{totalPrice.toLocaleString("fr-FR")},00 €</span>
+                  <span className="text-[16px] font-bold text-[#00234b]">Montant total</span>
+                  <span className="text-[26px] font-extrabold tracking-tight text-[#00234b] leading-none">{totalPrice.toLocaleString("fr-FR")},00 €</span>
                 </div>
                 <div className="text-right text-[11.5px] text-gray-500">
                   TVA de {tva.toLocaleString("fr-FR")} € incluse
                 </div>
               </div>
 
-              <button 
+              <label className="flex items-start gap-3 mb-5 cursor-pointer group">
+                <span
+                  className={`w-5 h-5 mt-0.5 shrink-0 rounded-md border-2 flex items-center justify-center transition-colors ${
+                    formData.attestation20h
+                      ? "bg-[#1278CC] border-[#1278CC]"
+                      : "bg-white border-gray-300 group-hover:border-[#1278CC]"
+                  }`}
+                >
+                  {formData.attestation20h && (
+                    <Check className="w-3.5 h-3.5 text-white" strokeWidth={3.5} />
+                  )}
+                </span>
+                <span className="text-[13px] text-gray-700 leading-snug">
+                  J&apos;atteste avoir déjà effectué 20h de conduite dans une école de
+                  conduite
+                </span>
+                <input
+                  type="checkbox"
+                  name="attestation20h"
+                  checked={formData.attestation20h}
+                  onChange={handleChange}
+                  className="hidden"
+                />
+              </label>
+
+              <button
                 onClick={handleCheckout}
                 disabled={loadingSubmit}
-                className="w-full bg-[#3647AC] text-white py-3.5 rounded-full font-medium text-[15px] hover:bg-[#2A3786] transition-colors shadow-sm disabled:opacity-70 flex items-center justify-center gap-2"
+                className="w-full bg-[#ffcb00] hover:bg-[#f0bd00] text-[#00234b] py-4 rounded-full font-extrabold text-[15px] transition-all shadow-xl shadow-amber-200/60 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-70 disabled:hover:translate-y-0 flex items-center justify-center gap-2"
               >
                 {loadingSubmit ? (
                   <>
@@ -588,9 +744,30 @@ export default function CheckoutPage() {
                     Traitement...
                   </>
                 ) : (
-                  "Continuer"
+                  <>
+                    <Lock className="w-4 h-4" />
+                    Continuer vers le paiement
+                  </>
                 )}
               </button>
+
+              <div className="mt-5 flex items-center justify-center gap-3">
+                <Image
+                  src="/icons/securepayment.png"
+                  alt=""
+                  width={46}
+                  height={46}
+                  className="shrink-0"
+                />
+                <div className="flex flex-col items-start gap-1.5">
+                  <span className="text-[12px] font-semibold text-gray-600">
+                    Paiement sécurisé via Stripe
+                  </span>
+                  <span className="text-[10px] font-bold text-white uppercase tracking-wide px-3 py-1 rounded-full bg-[#5FA82B]">
+                    4x sans frais possible
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 

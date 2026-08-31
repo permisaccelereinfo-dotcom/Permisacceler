@@ -241,3 +241,60 @@ export function buildAutoEcoleNotificationEmail(
     `,
   };
 }
+
+export function buildCancellationEmail(options: {
+  recipientName: string;
+  cancelledBy: "student" | "auto_ecole";
+  stageTitle: string;
+  autoEcoleName: string;
+  startDate: string;
+  endDate: string;
+  totalPrice: number;
+  wasPaid: boolean;
+  refunded: boolean;
+}): { subject: string; html: string } {
+  const formattedStart = new Date(options.startDate).toLocaleDateString("fr-FR");
+  const formattedEnd = new Date(options.endDate).toLocaleDateString("fr-FR");
+  const byWhom =
+    options.cancelledBy === "auto_ecole" ? "par l'auto-école" : "par l'élève";
+  const refundLine = !options.wasPaid
+    ? ""
+    : options.refunded
+      ? `<p>Le montant payé (${options.totalPrice.toLocaleString("fr-FR")} €) est remboursé sur le moyen de paiement utilisé. Il apparaîtra sur le relevé sous quelques jours ouvrés.</p>`
+      : `<p>Le remboursement du montant payé (${options.totalPrice.toLocaleString("fr-FR")} €) est en cours de traitement. Notre équipe reviendra vers vous rapidement.</p>`;
+
+  return {
+    subject: "Annulation de réservation - PermisAccéléré",
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+        <div style="text-align: center; padding: 32px 0; border-bottom: 2px solid #3647AC;">
+          <h1 style="color: #3647AC; margin: 0;">PermisAccéléré</h1>
+          <p style="color: #666; margin: 8px 0 0;">Annulation de réservation</p>
+        </div>
+        <div style="padding: 24px;">
+          <p>Bonjour ${options.recipientName},</p>
+          <p>La réservation suivante a été annulée ${byWhom} :</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #eee; color: #666;">Stage</td>
+              <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: 600;">${options.stageTitle}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #eee; color: #666;">Auto-école</td>
+              <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: 600;">${options.autoEcoleName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; color: #666;">Période</td>
+              <td style="padding: 8px; font-weight: 600;">Du ${formattedStart} au ${formattedEnd}</td>
+            </tr>
+          </table>
+          ${refundLine}
+          <p>Pour toute question, répondez simplement à cet email.</p>
+        </div>
+        <div style="text-align: center; padding: 16px; color: #9ca3af; font-size: 12px; border-top: 1px solid #eee;">
+          PermisAccéléré - Tous droits réservés
+        </div>
+      </div>
+    `,
+  };
+}

@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { formatDateFr, toDateOrNull } from "@/lib/utils";
 
 export default function StudentDashboard() {
   const router = useRouter();
@@ -71,13 +72,22 @@ export default function StudentDashboard() {
       const bookingsList = bookingsData || [];
       setBookings(bookingsList);
 
-      // Calculate stats
+      // Calculate stats. A cancelled booking is not a booking the student
+      // still has, and a stage with no readable start_date must not be
+      // silently counted as "upcoming" through a NaN comparison.
       const now = new Date();
+      const active = bookingsList.filter((b: any) => b.status !== "cancelled");
       setStats({
-        totalBookings: bookingsList.length,
-        upcoming: bookingsList.filter((b: any) => 
-          b.status === "confirmed" && new Date(b.stage?.start_date) > now
-        ).length,
+        totalBookings: active.length,
+        upcoming: active.filter((b: any) => {
+          if (b.status !== "confirmed" && b.status !== "pending") return false;
+          // A stage counts until it is over (dates are date-only, so the end
+          // day itself still counts): "start > now" missed stages starting
+          // today or currently running.
+          const start = toDateOrNull(b.stage?.start_date);
+          const end = toDateOrNull(b.stage?.end_date) ?? start;
+          return end !== null && end.getTime() + 24 * 60 * 60 * 1000 > now.getTime();
+        }).length,
         completed: bookingsList.filter((b: any) => b.status === "completed").length,
       });
 
@@ -257,20 +267,30 @@ export default function StudentDashboard() {
                           : booking.status === "completed" ? "Terminé"
                           : "Annulé"}
                       </span>
-                      <span className="text-sm text-gray-500">Permis {booking.stage?.license_type}</span>
+                      {booking.stage?.license_type && (
+                        <span className="text-sm text-gray-500">Permis {booking.stage.license_type}</span>
+                      )}
                     </div>
-                    <h4 className="font-semibold text-gray-900">{booking.stage?.title}</h4>
-                    <p className="text-sm text-gray-600 flex items-center gap-1">
-                      <MapPin className="w-4 h-4" />
-                      {booking.stage?.auto_ecole?.name} - {booking.stage?.auto_ecole?.city}
-                    </p>
+                    <h4 className="font-semibold text-gray-900">
+                      {booking.stage?.title || "Stage indisponible"}
+                    </h4>
+                    {booking.stage?.auto_ecole?.name && (
+                      <p className="text-sm text-gray-600 flex items-center gap-1">
+                        <MapPin className="w-4 h-4" />
+                        {[booking.stage.auto_ecole.name, booking.stage.auto_ecole.city]
+                          .filter(Boolean)
+                          .join(" - ")}
+                      </p>
+                    )}
                   </div>
                   <div className="mt-4 sm:mt-0 text-right">
-                    <p className="text-lg font-bold text-blue-600">{booking.total_price}€</p>
-                    <p className="text-sm text-gray-500 flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
-                      Du {new Date(booking.stage?.start_date).toLocaleDateString("fr-FR")}
-                    </p>
+                    <p className="text-lg font-bold text-blue-600">{booking.total_price ?? 0}€</p>
+                    {booking.stage?.start_date && (
+                      <p className="text-sm text-gray-500 flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        Du {formatDateFr(booking.stage.start_date)}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}

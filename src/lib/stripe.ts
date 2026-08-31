@@ -12,3 +12,34 @@ export const stripe = stripeSecretKey
   : null;
 
 export type StripeClient = NonNullable<typeof stripe>;
+
+/**
+ * Refund the payment behind a checkout session. Returns true when the payment
+ * is refunded (including when Stripe reports it was already refunded), false
+ * when the session has no payment to refund. Other Stripe errors propagate.
+ */
+export async function refundCheckoutSessionPayment(
+  client: StripeClient,
+  stripeSessionId: string
+): Promise<boolean> {
+  const session = await client.checkout.sessions.retrieve(stripeSessionId);
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.payment_intent?.id;
+
+  if (!paymentIntentId) {
+    return false;
+  }
+
+  try {
+    await client.refunds.create({ payment_intent: paymentIntentId });
+  } catch (err) {
+    if (err instanceof Stripe.errors.StripeError && err.code === "charge_already_refunded") {
+      return true;
+    }
+    throw err;
+  }
+
+  return true;
+}

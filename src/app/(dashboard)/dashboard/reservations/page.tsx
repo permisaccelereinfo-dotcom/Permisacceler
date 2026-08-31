@@ -13,11 +13,14 @@ import {
   Mail,
   Search,
   Filter,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { BookingStatus } from "@/lib/supabase/database.types";
+import { BookingStatus, Database } from "@/lib/supabase/database.types";
+import { formatDateFr } from "@/lib/utils";
 
 export default function ReservationsPage() {
   const router = useRouter();
@@ -27,6 +30,8 @@ export default function ReservationsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [pendingCancel, setPendingCancel] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -86,22 +91,73 @@ export default function ReservationsPage() {
 
   const updateBookingStatus = async (bookingId: string, newStatus: BookingStatus) => {
     setUpdatingId(bookingId);
-    const { error } = await supabase
-      .from("bookings")
-      .update({ status: newStatus })
-      .eq("id", bookingId);
+    setError(null);
 
-    if (!error) {
-      setBookings(bookings.map(b => b.id === bookingId ? { ...b, status: newStatus } : b));
+    const patch: Database["public"]["Tables"]["bookings"]["Update"] = { status: newStatus };
+
+    // .select() so an update silently refused by RLS (no error, no row) is
+    // reported instead of leaving the row visually unchanged.
+    const { data: updated, error: updateError } = await supabase
+      .from("bookings")
+      .update(patch)
+      .eq("id", bookingId)
+      .select("id")
+      .maybeSingle();
+
+    if (updateError || !updated) {
+      setError(
+        updateError?.message ||
+          "Mise à jour refusée. Rechargez la page puis réessayez."
+      );
+    } else {
+      setBookings((current) =>
+        current.map((b) => (b.id === bookingId ? { ...b, status: newStatus } : b))
+      );
     }
+
     setUpdatingId(null);
   };
 
+  // Cancellation goes through the server route: it refunds a paid booking via
+  // Stripe and emails the student, which a direct table update cannot do.
+  const cancelBooking = async (booking: any) => {
+    setUpdatingId(booking.id);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/cancel`, { method: "POST" });
+      const payload = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setError(payload?.error || "L'annulation a échoué. Réessayez.");
+      } else {
+        setBookings((current) =>
+          current.map((b) =>
+            b.id === booking.id
+              ? {
+                  ...b,
+                  status: "cancelled",
+                  ...(payload?.refunded ? { payment_status: "refunded" } : {}),
+                }
+              : b
+          )
+        );
+        setPendingCancel(null);
+      }
+    } catch {
+      setError("L'annulation a échoué. Vérifiez votre connexion puis réessayez.");
+    }
+
+    setUpdatingId(null);
+  };
+
+  const term = searchTerm.trim().toLowerCase();
   const filteredBookings = bookings.filter((booking) => {
     const matchesSearch =
-      booking.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.user?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.stage?.title?.toLowerCase().includes(searchTerm.toLowerCase());
+      term === "" ||
+      (booking.user?.name ?? "").toLowerCase().includes(term) ||
+      (booking.user?.email ?? "").toLowerCase().includes(term) ||
+      (booking.stage?.title ?? "").toLowerCase().includes(term);
     const matchesStatus = statusFilter === "all" || booking.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -176,6 +232,13 @@ export default function ReservationsPage() {
           </div>
         </div>
 
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
@@ -227,7 +290,7 @@ export default function ReservationsPage() {
                     <div className="flex items-center gap-3 mb-2">
                       {getStatusBadge(booking.status)}
                       <span className="text-sm text-gray-500">
-                        Réservé le {new Date(booking.created_at).toLocaleDateString("fr-FR")}
+                        Réservé le {formatDateFr(booking.created_at)}
                       </span>
                       {booking.status === "confirmed" && booking.created_at &&
                         (new Date().getTime() - new Date(booking.created_at).getTime()) < 7 * 24 * 60 * 60 * 1000 && (
@@ -239,16 +302,27 @@ export default function ReservationsPage() {
                     <h3 className="text-lg font-bold text-gray-900 mb-1">
                       {booking.user?.name || "Élève"}
                     </h3>
-                    <p className="text-gray-600 mb-2">{booking.stage?.title}</p>
+                    <p className="text-gray-600 mb-2">
+                      {booking.stage?.title || "Stage indisponible"}
+                    </p>
                     <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                      <span className="flex items-center gap-1.5">
-                        <Mail className="w-4 h-4" />
-                        {booking.user?.email}
-                      </span>
+                      {booking.user?.email && (
+                        <span className="flex items-center gap-1.5">
+                          <Mail className="w-4 h-4" />
+                          {booking.user.email}
+                        </span>
+                      )}
                       {booking.user?.phone && (
                         <span className="flex items-center gap-1.5">
                           <Phone className="w-4 h-4" />
                           {booking.user.phone}
+                        </span>
+                      )}
+                      {booking.stage?.start_date && (
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="w-4 h-4" />
+                          Du {formatDateFr(booking.stage.start_date)} au{" "}
+                          {formatDateFr(booking.stage.end_date)}
                         </span>
                       )}
                     </div>
@@ -257,20 +331,32 @@ export default function ReservationsPage() {
                   {/* Actions */}
                   <div className="flex items-center gap-2">
                     {booking.status === "confirmed" && (
-                      <>
-                        <button
-                          onClick={() => updateBookingStatus(booking.id, "completed")}
-                          disabled={updatingId === booking.id}
-                          className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
-                        >
-                          {updatingId === booking.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="w-4 h-4" />
-                          )}
-                          Terminer
-                        </button>
-                      </>
+                      <button
+                        onClick={() => updateBookingStatus(booking.id, "completed")}
+                        disabled={updatingId === booking.id}
+                        className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        {updatingId === booking.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="w-4 h-4" />
+                        )}
+                        Terminer
+                      </button>
+                    )}
+
+                    {(booking.status === "confirmed" || booking.status === "pending") && (
+                      <button
+                        onClick={() => {
+                          setError(null);
+                          setPendingCancel(booking);
+                        }}
+                        disabled={updatingId === booking.id}
+                        className="px-4 py-2 bg-red-50 text-red-600 font-semibold rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Annuler
+                      </button>
                     )}
                   </div>
                 </div>
@@ -279,6 +365,72 @@ export default function ReservationsPage() {
           </div>
         )}
       </div>
+
+      {/* Cancel confirmation */}
+      {pendingCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full"
+          >
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Annuler cette réservation ?</h2>
+              <button
+                type="button"
+                onClick={() => setPendingCancel(null)}
+                className="p-1 hover:bg-gray-100 rounded-lg"
+                aria-label="Fermer"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-2">
+              <span className="font-semibold">{pendingCancel.user?.name || "Élève"}</span>
+              {" — "}
+              {pendingCancel.stage?.title || "Stage indisponible"}
+            </p>
+
+            <div className="p-4 bg-amber-50 text-amber-800 rounded-xl text-sm mb-6">
+              {pendingCancel.payment_status === "fully_paid"
+                ? `L'élève a payé ${pendingCancel.total_price ?? 0}€ : l'annulation déclenche le remboursement de ce montant et l'élève sera prévenu par email.`
+                : "L'élève sera prévenu par email et sa place sera libérée."}
+            </div>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingCancel(null)}
+                disabled={updatingId === pendingCancel.id}
+                className="flex-1 py-3 border-2 border-gray-200 text-gray-700 font-bold rounded-xl hover:border-gray-300 transition-colors disabled:opacity-50"
+              >
+                Retour
+              </button>
+              <button
+                type="button"
+                onClick={() => cancelBooking(pendingCancel)}
+                disabled={updatingId === pendingCancel.id}
+                className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {updatingId === pendingCancel.id ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <XCircle className="w-5 h-5" />
+                )}
+                Annuler la réservation
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

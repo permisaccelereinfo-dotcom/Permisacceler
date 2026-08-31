@@ -8,26 +8,26 @@ export function HowItWorks() {
     {
       image: "/form.png",
       step: "1",
-      title: "Inscription",
-      description: "Remplissez notre formulaire. Nous évaluons votre niveau.",
+      title: "Choisissez votre formule accélérée",
+      description: "Comparez les stages et réservez la date qui vous convient.",
     },
     {
       image: "/chain.png",
       step: "2",
-      title: "Mise en relation avec l'auto école partenaire",
-      description: "Nous vous mettons en relation avec votre expert dédié.",
+      title: "Nous vous mettons en relation avec l'auto école",
+      description: "Votre auto-école partenaire vous contacte et prépare votre stage.",
     },
     {
       image: "/education.png",
       step: "3",
-      title: "Conduite accélérée",
-      description: "Accès e-learning et immersion totale : 3 à 4h de conduite par jour.",
+      title: "Formation\nintense",
+      description: "Immersion totale : 3 à 4h de conduite par jour avec un moniteur unique.",
     },
     {
       image: "/exam.png",
       step: "4",
-      title: "Examen de conduite",
-      description: "Placement prioritaire à l'examen sur vos parcours.",
+      title: "Placement prioritaire à l'examen",
+      description: "Une date d'examen garantie dès la fin de votre stage.",
     },
   ];
 
@@ -62,7 +62,7 @@ export function HowItWorks() {
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white text-sm font-bold mb-4">
                 {item.step}
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
+              <h3 className="text-xl font-bold text-gray-900 mb-2 whitespace-pre-line">
                 {item.title}
               </h3>
               <p className="text-gray-600">

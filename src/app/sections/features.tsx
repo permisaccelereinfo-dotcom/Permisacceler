@@ -8,28 +8,25 @@ const features = [
   {
     image: "/time.png",
     title: "Date d'examen garanti",
-    description: "Obtenez des dates d'évaluation et de formation en accéléré, sans liste d'attente.",
+    description: "Obtenez une date d’examen de conduite , sans liste d’attente",
   },
   {
     image: "/learning.png",
     title: "Auto école partenaires",
-    description: "Des professionnels certifiés par l'État pour un apprentissage serein et sur-mesure.",
+    description: "Des experts agréés par l’Etat, à votre service pour un apprentissage personnalisé et en toute confiance",
   },
   {
     image: "/winner.png",
     title: "Rapidité record",
-    description: "La majorité de nos élèves réussissent leur examen du premier coup grâce à notre méthode.",
+    description: "Notre méthode fais la différence : la plupart de nos élèves décrochent leur permis dès le premier passage",
   },
 ];
 
 const missionItems = [
-  "Vous accompagner jusqu'au permis en 15 jours",
-  "Garantir votre place d'examen dès 72h",
-  "Sécuriser votre passage avec nos partenaires",
-  "Réduire votre temps d'attente de 50%",
-  "Simplifier vos démarches administratives",
-  "Vous garantir satisfaction ou remboursement",
-  "Être disponible 7j/7 pour vous aider",
+  "Vous accompagner jusqu'à l'obtention de votre permis",
+  "Garantir votre place d'examen",
+  "Réduire le temps de votre passage à l'examen",
+  "Disponible 7j/7",
 ];
 
 const cities = [
@@ -217,15 +214,15 @@ export function Features() {
                 Près de chez vous
               </h3>
               <p className="text-base text-gray-600 mb-3 leading-relaxed">
-                Nos stages arrivent progressivement dans de nouvelles zones. En attendant, retrouvez les sessions ouvertes à{" "}
-                <span className="text-primary font-medium">Paris</span>,{" "}
-                <span className="text-primary font-medium">Marseille</span>,{" "}
-                <span className="text-primary font-medium">Lyon</span>,{" "}
-                <span className="text-primary font-medium">Nantes</span>,{" "}
-                <span className="text-primary font-medium">Bordeaux</span>,{" "}
-                <span className="text-primary font-medium">Montpellier</span>,{" "}
-                <span className="text-primary font-medium">Nice</span> et{" "}
-                <span className="text-primary font-medium">Aix-en-Provence</span>.
+                De <span className="text-primary font-medium">Nanterre</span> à{" "}
+                <span className="text-primary font-medium">Paris</span>, en passant par{" "}
+                <span className="text-primary font-medium">Rueil</span>,{" "}
+                <span className="text-primary font-medium">Gennevilliers</span>,{" "}
+                <span className="text-primary font-medium">Saint-Cloud</span>,{" "}
+                <span className="text-primary font-medium">Saint-Germain</span> et{" "}
+                <span className="text-primary font-medium">Sartrouville</span> : notre réseau
+                grandit pour être toujours plus proche de vous et s&apos;étend prochainement
+                en province.
               </p>
 
               <h4 className="text-base font-semibold text-gray-800 mb-5 mt-6">

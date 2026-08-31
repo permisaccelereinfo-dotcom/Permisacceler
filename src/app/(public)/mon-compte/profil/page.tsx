@@ -10,6 +10,7 @@ import {
   Mail,
   Phone,
   CheckCircle2,
+  AlertCircle,
   LogOut,
   Car,
   FileCheck,
@@ -34,7 +35,8 @@ export default function StudentProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [nephError, setNepHError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [nephError, setNephError] = useState<string | null>(null);
   const [user, setUser] = useState<any>(null);
 
   const [formData, setFormData] = useState({
@@ -103,21 +105,30 @@ export default function StudentProfile() {
     e.preventDefault();
     setSaving(true);
     setSuccess(false);
+    setSaveError(null);
 
     try {
-      if (!user) return;
+      if (!user) {
+        setSaveError("Profil introuvable. Reconnectez-vous puis réessayez.");
+        return;
+      }
 
-      const { error } = await supabase
+      if (formData.neph_number !== "" && formData.neph_number.length !== 12) {
+        setSaveError("Le NEPH doit contenir exactement 12 chiffres.");
+        return;
+      }
+
+      const { data: updated, error } = await supabase
         .from("users")
         .update({
           name: formData.name,
-          phone: formData.phone,
+          phone: formData.phone || null,
           date_naissance: formData.date_naissance || null,
           ville_naissance: formData.ville_naissance || null,
           adresse: formData.adresse || null,
           complement_adresse: formData.complement_adresse || null,
           code_postal: formData.code_postal || null,
-          reason: formData.reason,
+          reason: formData.reason || null,
           has_permit: formData.has_permit,
           transmission_preference: formData.transmission_preference || null,
           has_code: formData.has_code,
@@ -127,14 +138,25 @@ export default function StudentProfile() {
           // by JSON.stringify, so an empty reason never downgrades the flag.
           quiz_completed: formData.reason ? true : undefined,
         })
-        .eq("id", user.id);
+        .eq("id", user.id)
+        .select("id, quiz_completed")
+        .maybeSingle();
 
       if (error) throw error;
 
+      // An UPDATE blocked by RLS returns no error and no row; without this the
+      // page claimed success while nothing had been saved.
+      if (!updated) {
+        setSaveError("Modifications non enregistrées. Reconnectez-vous puis réessayez.");
+        return;
+      }
+
+      setUser({ ...user, ...formData, quiz_completed: updated.quiz_completed });
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error updating profile:", err);
+      setSaveError(err?.message || "Impossible d'enregistrer vos modifications. Réessayez.");
     } finally {
       setSaving(false);
     }
@@ -184,6 +206,13 @@ export default function StudentProfile() {
             <div className="mb-6 p-4 bg-green-50 text-green-600 rounded-xl flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5" />
               Modifications enregistrées !
+            </div>
+          )}
+
+          {saveError && (
+            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <span>{saveError}</span>
             </div>
           )}
 
@@ -245,12 +274,36 @@ export default function StudentProfile() {
                 </div>
 
                 <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Ville de naissance</label>
+                  <input
+                    type="text"
+                    value={formData.ville_naissance}
+                    onChange={(e) => setFormData({ ...formData, ville_naissance: e.target.value })}
+                    placeholder="Paris"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Adresse</label>
                   <input
                     type="text"
                     value={formData.adresse}
                     onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
                     placeholder="12 rue de la Paix"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Complément d&apos;adresse <span className="font-normal text-gray-400">(optionnel)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.complement_adresse}
+                    onChange={(e) => setFormData({ ...formData, complement_adresse: e.target.value })}
+                    placeholder="Bâtiment B, appartement 12"
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 outline-none"
                   />
                 </div>
@@ -410,9 +463,9 @@ export default function StudentProfile() {
                     const value = e.target.value.replace(/\D/g, ""); // Only digits
                     setFormData({ ...formData, neph_number: value });
                     if (value.length === 12 || value === "") {
-                      setNepHError(null);
+                      setNephError(null);
                     } else {
-                      setNepHError("Le NEPH doit contenir exactement 12 chiffres");
+                      setNephError("Le NEPH doit contenir exactement 12 chiffres");
                     }
                   }}
                   placeholder="12 chiffres exactement"

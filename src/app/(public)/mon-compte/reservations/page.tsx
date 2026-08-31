@@ -14,16 +14,23 @@ import {
   Clock3,
   Star,
   Download,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { formatDateFr } from "@/lib/utils";
 
 export default function StudentReservations() {
   const router = useRouter();
   const supabase = createClient();
   const [bookings, setBookings] = useState<any[]>([]);
+  const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [pendingCancel, setPendingCancel] = useState<any>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -53,11 +60,54 @@ export default function StudentReservations() {
         .order("created_at", { ascending: false });
 
       setBookings(bookingsData || []);
+
+      // bookings has no `reviewed` column — whether a review exists lives in
+      // the reviews table, so read it instead of testing an absent field
+      // (which was always undefined, i.e. always "not reviewed").
+      const { data: reviewRows } = await supabase
+        .from("reviews")
+        .select("booking_id")
+        .eq("user_id", user.id);
+
+      setReviewedBookingIds(new Set((reviewRows ?? []).map((r) => r.booking_id)));
       setLoading(false);
     };
 
     fetchBookings();
   }, [router, supabase]);
+
+  // Cancellation goes through the server route: it refunds a paid booking via
+  // Stripe and notifies the auto-école by email.
+  const cancelBooking = async (booking: any) => {
+    setCancelling(true);
+    setCancelError(null);
+
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/cancel`, { method: "POST" });
+      const payload = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setCancelError(payload?.error || "L'annulation a échoué. Réessayez.");
+      } else {
+        setBookings((current) =>
+          current.map((b) =>
+            b.id === booking.id
+              ? {
+                  ...b,
+                  status: "cancelled",
+                  ...(payload?.refunded ? { payment_status: "refunded" } : {}),
+                }
+              : b
+          )
+        );
+        setPendingCancel(null);
+      }
+    } catch {
+      setCancelError("L'annulation a échoué. Vérifiez votre connexion puis réessayez.");
+    }
+
+    setCancelling(false);
+  };
 
   const downloadReceipt = (booking: any) => {
     const stage = booking.stage;
@@ -100,14 +150,14 @@ body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
 <div class="section">
 <h2>Détails de la réservation</h2>
 <div class="row"><span>N° réservation</span><span>${booking.id}</span></div>
-<div class="row"><span>Date de réservation</span><span>${new Date(booking.created_at).toLocaleDateString("fr-FR")}</span></div>
+<div class="row"><span>Date de réservation</span><span>${formatDateFr(booking.created_at, "N/A")}</span></div>
 <div class="row"><span>Statut</span><span>${booking.status === "confirmed" ? "Confirmée" : booking.status === "completed" ? "Terminée" : booking.status}</span></div>
 </div>
 <div class="section">
 <h2>Stage</h2>
 <div class="row"><span>Titre</span><span>${esc(stage?.title || "N/A")}</span></div>
 <div class="row"><span>Type de permis</span><span>Permis ${esc(stage?.license_type || "N/A")}</span></div>
-<div class="row"><span>Période</span><span>Du ${new Date(stage?.start_date).toLocaleDateString("fr-FR")} au ${new Date(stage?.end_date).toLocaleDateString("fr-FR")}</span></div>
+<div class="row"><span>Période</span><span>Du ${formatDateFr(stage?.start_date, "N/A")} au ${formatDateFr(stage?.end_date, "N/A")}</span></div>
 </div>
 <div class="section">
 <h2>Auto-école</h2>
@@ -230,40 +280,52 @@ body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
                     <div className="flex items-center gap-3 mb-3">
                       {getStatusBadge(booking.status)}
                       <span className="text-sm text-gray-500">
-                        Réservé le {new Date(booking.created_at).toLocaleDateString("fr-FR")}
+                        Réservé le {formatDateFr(booking.created_at)}
                       </span>
                     </div>
 
-                    <h3 className="text-lg font-bold text-gray-900 mb-2">{booking.stage?.title}</h3>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2">
+                      {booking.stage?.title || "Stage indisponible"}
+                    </h3>
 
                     <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-4">
-                      <span className="flex items-center gap-1.5">
-                        <Car className="w-4 h-4" />
-                        Permis {booking.stage?.license_type}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <MapPin className="w-4 h-4" />
-                        {booking.stage?.auto_ecole?.name} - {booking.stage?.auto_ecole?.city}
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <Clock className="w-4 h-4" />
-                        Du {new Date(booking.stage?.start_date).toLocaleDateString("fr-FR")} au{" "}
-                        {new Date(booking.stage?.end_date).toLocaleDateString("fr-FR")}
-                      </span>
+                      {booking.stage?.license_type && (
+                        <span className="flex items-center gap-1.5">
+                          <Car className="w-4 h-4" />
+                          Permis {booking.stage.license_type}
+                        </span>
+                      )}
+                      {booking.stage?.auto_ecole?.name && (
+                        <span className="flex items-center gap-1.5">
+                          <MapPin className="w-4 h-4" />
+                          {[booking.stage.auto_ecole.name, booking.stage.auto_ecole.city]
+                            .filter(Boolean)
+                            .join(" - ")}
+                        </span>
+                      )}
+                      {booking.stage?.start_date && (
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="w-4 h-4" />
+                          Du {formatDateFr(booking.stage.start_date)} au{" "}
+                          {formatDateFr(booking.stage.end_date)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Contact auto-école */}
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-sm font-semibold text-gray-700 mb-2">Contact auto-école</p>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <p>{booking.stage?.auto_ecole?.phone}</p>
-                        <p>{booking.stage?.auto_ecole?.email}</p>
+                    {(booking.stage?.auto_ecole?.phone || booking.stage?.auto_ecole?.email) && (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-sm font-semibold text-gray-700 mb-2">Contact auto-école</p>
+                        <div className="text-sm text-gray-600 space-y-1">
+                          {booking.stage?.auto_ecole?.phone && <p>{booking.stage.auto_ecole.phone}</p>}
+                          {booking.stage?.auto_ecole?.email && <p>{booking.stage.auto_ecole.email}</p>}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <div className="lg:text-right">
-                    <p className="text-2xl font-black text-blue-600">{booking.total_price}€</p>
+                    <p className="text-2xl font-black text-blue-600">{booking.total_price ?? 0}€</p>
                     <p className="text-sm text-gray-500 mb-4">TTC</p>
 
                     {/* Actions */}
@@ -278,13 +340,30 @@ body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
                       </button>
                     )}
 
-                    {booking.status === "completed" && !booking.reviewed && (
+                    {(booking.status === "pending" || booking.status === "confirmed") && (
+                      <button
+                        onClick={() => {
+                          setCancelError(null);
+                          setPendingCancel(booking);
+                        }}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 font-semibold rounded-lg hover:bg-red-100 transition-colors"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Annuler
+                      </button>
+                    )}
+
+                    {booking.status === "completed" && (
                       <Link
                         href={`/mon-compte/avis/${booking.id}`}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-100 text-yellow-700 font-semibold rounded-lg hover:bg-yellow-200 transition-colors"
+                        className={`inline-flex items-center justify-center gap-2 px-4 py-2 font-semibold rounded-lg transition-colors ${
+                          reviewedBookingIds.has(booking.id)
+                            ? "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                            : "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                        }`}
                       >
                         <Star className="w-4 h-4" />
-                        Laisser un avis
+                        {reviewedBookingIds.has(booking.id) ? "Modifier mon avis" : "Laisser un avis"}
                       </Link>
                     )}
                     </div>
@@ -295,6 +374,72 @@ body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
           </div>
         )}
       </div>
+
+      {/* Cancel confirmation */}
+      {pendingCancel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full"
+          >
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Annuler cette réservation ?</h2>
+              <button
+                type="button"
+                onClick={() => setPendingCancel(null)}
+                className="p-1 hover:bg-gray-100 rounded-lg"
+                aria-label="Fermer"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-2">
+              <span className="font-semibold">
+                {pendingCancel.stage?.title || "Stage indisponible"}
+              </span>
+            </p>
+
+            <div className="p-4 bg-amber-50 text-amber-800 rounded-xl text-sm mb-6">
+              {pendingCancel.payment_status === "fully_paid"
+                ? `Le montant payé (${pendingCancel.total_price ?? 0}€) vous sera remboursé sur votre moyen de paiement. L'auto-école sera prévenue.`
+                : "Votre place sera libérée et l'auto-école sera prévenue."}
+            </div>
+
+            {cancelError && (
+              <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-xl text-sm flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{cancelError}</span>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setPendingCancel(null)}
+                disabled={cancelling}
+                className="flex-1 py-3 border-2 border-gray-200 text-gray-700 font-bold rounded-xl hover:border-gray-300 transition-colors disabled:opacity-50"
+              >
+                Retour
+              </button>
+              <button
+                type="button"
+                onClick={() => cancelBooking(pendingCancel)}
+                disabled={cancelling}
+                className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {cancelling ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <XCircle className="w-5 h-5" />
+                )}
+                Annuler la réservation
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

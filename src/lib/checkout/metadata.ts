@@ -19,6 +19,7 @@ const ALLOWED_METADATA_KEYS = [
   "aLeCode",
   "neph",
   "raison",
+  "attestation20h",
 ] as const;
 
 const FORBIDDEN_METADATA_KEYS = new Set(["password", "confirmPassword"]);

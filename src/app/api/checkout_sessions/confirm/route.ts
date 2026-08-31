@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServerSupabaseClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
-import { createDatabaseClient } from "@/lib/supabase/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { confirmPaidBooking } from "@/lib/bookings/confirmation";
 import { isPaidBookingStatus } from "@/lib/bookings/status";
 
@@ -57,7 +57,16 @@ export async function POST(req: Request) {
     );
   }
 
-  const databaseClient = createDatabaseClient(supabase);
+  // Confirmation writes payment fields, which the bookings hardening trigger
+  // reserves for trusted server flows — the user-scoped client cannot do it.
+  const databaseClient = createAdminClient();
+
+  if (!databaseClient) {
+    return NextResponse.json(
+      { error: "SUPABASE_SERVICE_ROLE_KEY is required to confirm payments." },
+      { status: 500 }
+    );
+  }
 
   // Only attempt confirmation once Stripe reports the session as paid. If it
   // isn't paid yet we simply report current status so the client keeps polling.
@@ -70,6 +79,19 @@ export async function POST(req: Request) {
       paidAmount: (session.amount_total ?? 0) / 100,
       fallbackUserEmail: session.customer_details?.email ?? session.customer_email,
     });
+
+    if (!result.ok && result.code === "booking_not_pending") {
+      // Cancelled while the payment was in flight. The Stripe webhook refunds
+      // this case; surface a message that doesn't ask the user to retry.
+      return NextResponse.json(
+        {
+          error:
+            "Cette réservation a été annulée avant la validation du paiement. " +
+            "Le montant payé vous sera remboursé automatiquement.",
+        },
+        { status: result.status }
+      );
+    }
 
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: result.status });

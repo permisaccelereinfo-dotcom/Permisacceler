@@ -17,6 +17,7 @@ import {
   Calendar,
   Car,
   Loader2,
+  ArrowRight,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -24,17 +25,13 @@ import {
   Check,
   BookOpen,
   Hash,
-  Layers,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useSearchParams } from "next/navigation";
-
-const BRAND_BLUE = "#1278CC";
-const BRAND_BLUE_HOVER = "#0A5CA6";
-const GREEN_BADGE = "#5FA82B";
-const BEIGE_BG = "#F8F6F2";
-const BEIGE_PANEL = "#EDE8E0";
+import { FunnelProgress } from "@/app/components/funnel-progress";
 
 type StageResult = {
   stage_id: string;
@@ -111,12 +108,11 @@ const OFFER_INCLUSIONS: Record<string, string[]> = {
 };
 
 const DEFAULT_INCLUSIONS = [
-  "31 heures de conduite",
-  "Durée du stage : 15 jours",
-  "Place d'examen sous 10 jours(1)",
-  "1 moniteur unique",
+  "6 heures de conduite",
+  "Durée du stage : 1 à 5 jours",
+  "Accompagnement jusqu'à l'examen",
   "1 date d'examen 100% garantie",
-  "Délai : 3 à 10 jours après le stage",
+  "Délai : 1 à 9 jours après le stage",
 ];
 
 const METRO_LINES = [
@@ -179,7 +175,7 @@ function daysUntil(dateStr: string) {
 function getDrivingHours(stageType: string): string {
   const match = OFFER_INCLUSIONS[stageType]?.[0];
   if (match) return match;
-  return "31 heures de conduite";
+  return DEFAULT_INCLUSIONS[0];
 }
 
 function displayCity(city: string) {
@@ -228,7 +224,7 @@ function SearchDropdown({
   isOpen,
   onToggle,
   containerRef,
-  minWidthClass,
+  withDivider,
 }: {
   label: string;
   icon: ReactNode;
@@ -239,10 +235,9 @@ function SearchDropdown({
   isOpen: boolean;
   onToggle: () => void;
   containerRef: RefObject<HTMLDivElement | null>;
-  minWidthClass?: string;
+  withDivider?: boolean;
 }) {
   const selected = options.find((o) => o.value === value);
-  const isWide = Boolean(minWidthClass);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({});
 
@@ -254,9 +249,9 @@ function SearchDropdown({
       const rect = buttonRef.current.getBoundingClientRect();
       setMenuStyle({
         position: "fixed",
-        top: rect.bottom + 4,
+        top: rect.bottom + 6,
         left: rect.left,
-        minWidth: rect.width,
+        minWidth: Math.max(rect.width, 220),
         zIndex: 9999,
       });
     };
@@ -277,8 +272,8 @@ function SearchDropdown({
       <div
         data-dropdown-menu="true"
         style={menuStyle}
-        className={`bg-white rounded-lg border border-gray-200 shadow-lg py-1 ${
-          options.length > 6 ? "max-h-64 overflow-y-auto" : ""
+        className={`bg-white rounded-2xl border border-gray-100 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.18)] py-2 overflow-hidden ${
+          options.length > 6 ? "max-h-72 overflow-y-auto" : ""
         }`}
       >
         {options.map((opt) => (
@@ -286,11 +281,16 @@ function SearchDropdown({
             key={opt.value}
             type="button"
             onClick={() => onChange(opt.value)}
-            className={`block w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 whitespace-nowrap ${
-              value === opt.value ? "font-semibold text-gray-900" : "text-gray-700"
+            className={`w-full text-left px-5 py-2.5 text-sm flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors whitespace-nowrap ${
+              value === opt.value
+                ? "bg-[#1278CC]/5 text-[#1278CC] font-bold"
+                : "text-gray-700 font-medium"
             }`}
           >
-            {opt.label}
+            <span>{opt.label}</span>
+            {value === opt.value && (
+              <Check className="w-4 h-4 shrink-0 text-[#1278CC]" />
+            )}
           </button>
         ))}
       </div>,
@@ -299,34 +299,59 @@ function SearchDropdown({
 
   return (
     <div
-      className={`relative shrink-0 ${minWidthClass ?? "w-fit"}`}
       ref={containerRef}
+      className={`relative flex-1 min-w-0 ${
+        withDivider ? "border-b lg:border-b-0 lg:border-r border-gray-100" : ""
+      }`}
     >
-      <label className="block text-[11px] font-semibold text-gray-500 mb-1 whitespace-nowrap">
-        {label}
-      </label>
       <button
         ref={buttonRef}
         type="button"
         onClick={onToggle}
-        className={`inline-flex items-center gap-1.5 bg-white rounded-lg border border-gray-200/80 px-2.5 py-2 text-left whitespace-nowrap ${
-          isWide ? "w-full justify-between" : ""
-        }`}
+        className="w-full flex flex-col px-5 lg:px-4 py-2 text-left group cursor-pointer hover:bg-gray-50/60 rounded-xl transition-colors"
       >
-        {icon}
-        <span
-          className={`text-sm ${
-            selected ? "font-medium text-gray-900" : "font-normal text-gray-500"
-          }`}
-        >
-          {selected ? selected.label : placeholder}
+        <span className="text-[10px] font-bold uppercase tracking-wide text-[#1278CC] mb-0.5 whitespace-nowrap">
+          {label}
         </span>
-        <ChevronDown
-          className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
-        />
+        <span className="flex items-center w-full">
+          <span className="text-gray-400 mr-2 shrink-0 group-hover:text-[#1278CC] transition-colors">
+            {icon}
+          </span>
+          <span
+            className={`flex-1 text-sm truncate ${
+              selected ? "font-semibold text-gray-900" : "font-normal text-gray-500"
+            }`}
+          >
+            {selected ? selected.label : placeholder}
+          </span>
+          <ChevronDown
+            className={`w-4 h-4 text-gray-400 shrink-0 ml-2 group-hover:text-[#1278CC] transition-transform duration-300 ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
+        </span>
       </button>
       {menu}
     </div>
+  );
+}
+
+function StageCardSkeleton() {
+  return (
+    <li className="bg-white rounded-2xl border border-gray-200/80 overflow-hidden flex flex-col sm:flex-row animate-pulse">
+      <div className="flex-1 p-5 sm:p-6 space-y-3">
+        <div className="h-5 w-56 bg-gray-200 rounded" />
+        <div className="h-3.5 w-40 bg-gray-100 rounded" />
+        <div className="h-3.5 w-64 bg-gray-100 rounded" />
+        <div className="h-3.5 w-48 bg-gray-100 rounded" />
+        <div className="h-3.5 w-36 bg-gray-100 rounded" />
+      </div>
+      <div className="sm:w-[220px] shrink-0 p-5 sm:p-6 bg-[#FAF8F5] flex flex-col items-center justify-center gap-3">
+        <div className="h-7 w-24 bg-gray-200 rounded" />
+        <div className="h-5 w-20 bg-gray-100 rounded-full" />
+        <div className="h-10 w-full bg-gray-200 rounded-full" />
+      </div>
+    </li>
   );
 }
 
@@ -418,11 +443,11 @@ function SearchContent() {
       const target = e.target as Node;
       const refs = [cityDropdownRef, monthDropdownRef, transmissionDropdownRef, stageHoursDropdownRef];
       const clickedInside = refs.some((ref) => ref.current?.contains(target));
-      
+
       // Also check if the click is inside a dropdown menu (portaled element)
       const menuElement = document.querySelector('[data-dropdown-menu="true"]');
       const isInsideMenu = menuElement?.contains(target) ?? false;
-      
+
       if (!clickedInside && !isInsideMenu) setOpenDropdown(null);
     };
     document.addEventListener("mousedown", handler);
@@ -667,9 +692,7 @@ function SearchContent() {
         ? "Représentation 6H"
         : stageType;
 
-  const offerInclusions = offerKey
-    ? OFFER_INCLUSIONS[offerKey] || DEFAULT_INCLUSIONS
-    : DEFAULT_INCLUSIONS;
+  const offerInclusions = DEFAULT_INCLUSIONS;
 
   const transmissionLabel =
     TRANSMISSION_OPTIONS.find((o) => o.value === transmission)?.label ?? "Boîte manuelle";
@@ -681,302 +704,338 @@ function SearchContent() {
   };
 
   return (
-    <div className="min-h-screen pt-16 pb-20" style={{ backgroundColor: BEIGE_BG }}>
+    <div className="min-h-screen bg-[#FAF8F5] pt-10 pb-20">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Progress */}
-        <div className="flex flex-col items-center justify-center mb-10 pt-4">
-          <span className="text-gray-400 text-sm mb-4">Dates</span>
-          <div className="flex gap-2 sm:gap-4 items-center">
-            <div className="w-8 sm:w-12 h-1 rounded-full" style={{ backgroundColor: BRAND_BLUE }} />
-            <div className="w-8 sm:w-12 h-1 rounded-full" style={{ backgroundColor: BRAND_BLUE }} />
-            <div className="w-8 sm:w-12 h-1 rounded-full" style={{ backgroundColor: BRAND_BLUE }} />
-            <div className="w-8 sm:w-12 h-1 bg-gray-200 rounded-full" />
-            <div className="w-8 sm:w-12 h-1 bg-gray-200 rounded-full" />
-            <div className="w-8 sm:w-12 h-1 bg-gray-200 rounded-full" />
-          </div>
-        </div>
+        <FunnelProgress current={1} />
 
         {/* Header */}
-        <div className="text-center mb-10">
-          <h1
-            className="text-[28px] sm:text-[36px] font-semibold text-gray-900 mb-3 tracking-tight"
-            style={{ fontFamily: "var(--ds-nb---font--primary)" }}
-          >
+        <div className="text-center mb-8">
+          <h1 className="text-[26px] sm:text-[34px] font-extrabold text-[#00234b] tracking-tight mb-2">
             Quand souhaitez-vous faire votre stage ?
           </h1>
+          <p className="text-gray-600 text-[15px]">
+            Choisissez la date qui vous convient — les places partent vite.
+          </p>
         </div>
 
         {/* Search bar */}
-        <div
-          className="rounded-xl px-4 py-3 mb-8 flex flex-nowrap items-end gap-x-3 overflow-visible"
-          style={{ backgroundColor: BEIGE_PANEL }}
-        >
-          <SearchDropdown
-            label="Lieu du stage"
-            minWidthClass="min-w-[16rem]"
-            icon={<MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
-            value={city}
-            options={[...CITY_OPTIONS]}
-            placeholder="Sélectionnez..."
-            onChange={(value) => {
-              setCity(value);
-              setOpenDropdown(null);
-            }}
-            isOpen={openDropdown === "city"}
-            onToggle={() => toggleDropdown("city")}
-            containerRef={cityDropdownRef}
-          />
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 mb-10 max-w-4xl mx-auto">
+          <div className="bg-white rounded-2xl lg:rounded-full shadow-xl shadow-gray-200/60 p-2 flex flex-col lg:flex-row items-stretch lg:items-center flex-1 gap-1 lg:gap-0">
+            <SearchDropdown
+              label="Lieu du stage"
+              icon={<MapPin className="w-4 h-4" />}
+              value={city}
+              options={[...CITY_OPTIONS]}
+              placeholder="Choisir..."
+              onChange={(value) => {
+                setCity(value);
+                setOpenDropdown(null);
+              }}
+              isOpen={openDropdown === "city"}
+              onToggle={() => toggleDropdown("city")}
+              containerRef={cityDropdownRef}
+              withDivider
+            />
 
-          <SearchDropdown
-            label="Date de démarrage"
-            minWidthClass="min-w-[13.5rem]"
-            icon={<Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
-            value={selectedMonth}
-            options={monthOptions.map((o) => ({ value: o.key, label: o.label }))}
-            placeholder="Sélectionnez..."
-            onChange={(key) => {
-              setSelectedMonth(key);
-              setOpenDropdown(null);
-            }}
-            isOpen={openDropdown === "month"}
-            onToggle={() => toggleDropdown("month")}
-            containerRef={monthDropdownRef}
-          />
+            <SearchDropdown
+              label="Date de début"
+              icon={<Calendar className="w-4 h-4" />}
+              value={selectedMonth}
+              options={monthOptions.map((o) => ({ value: o.key, label: o.label }))}
+              placeholder="Choisir..."
+              onChange={(key) => {
+                setSelectedMonth(key);
+                setOpenDropdown(null);
+              }}
+              isOpen={openDropdown === "month"}
+              onToggle={() => toggleDropdown("month")}
+              containerRef={monthDropdownRef}
+              withDivider
+            />
 
-          <SearchDropdown
-            label="Boîte de vitesse"
-            minWidthClass="min-w-[13.5rem]"
-            icon={<Car className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
-            value={transmission}
-            options={[...TRANSMISSION_OPTIONS]}
-            placeholder="Sélectionnez..."
-            onChange={(value) => {
-              setTransmission(value);
-              setOpenDropdown(null);
-            }}
-            isOpen={openDropdown === "transmission"}
-            onToggle={() => toggleDropdown("transmission")}
-            containerRef={transmissionDropdownRef}
-          />
+            <SearchDropdown
+              label="Boîte de vitesse"
+              icon={<Car className="w-4 h-4" />}
+              value={transmission}
+              options={[...TRANSMISSION_OPTIONS]}
+              placeholder="Choisir..."
+              onChange={(value) => {
+                setTransmission(value);
+                setOpenDropdown(null);
+              }}
+              isOpen={openDropdown === "transmission"}
+              onToggle={() => toggleDropdown("transmission")}
+              containerRef={transmissionDropdownRef}
+              withDivider
+            />
 
-          <SearchDropdown
-            label="Type de stage"
-            minWidthClass="min-w-[9rem]"
-            icon={<Layers className="w-3.5 h-3.5 text-gray-400 shrink-0" />}
-            value={stageHours}
-            options={[...STAGE_HOURS_OPTIONS]}
-            placeholder="Sélectionnez..."
-            onChange={(value) => {
-              setStageHours(value);
-              setOpenDropdown(null);
-            }}
-            isOpen={openDropdown === "stageHours"}
-            onToggle={() => toggleDropdown("stageHours")}
-            containerRef={stageHoursDropdownRef}
-          />
+            <SearchDropdown
+              label="Type de stage"
+              icon={<Clock className="w-4 h-4" />}
+              value={stageHours}
+              options={[...STAGE_HOURS_OPTIONS]}
+              placeholder="Choisir..."
+              onChange={(value) => {
+                setStageHours(value);
+                setOpenDropdown(null);
+              }}
+              isOpen={openDropdown === "stageHours"}
+              onToggle={() => toggleDropdown("stageHours")}
+              containerRef={stageHoursDropdownRef}
+            />
+          </div>
 
           <button
             type="button"
             onClick={() => searchStages()}
             disabled={loading}
-            className="shrink-0 px-4 py-2 rounded-lg text-white text-sm font-semibold whitespace-nowrap transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{ backgroundColor: BRAND_BLUE }}
-            onMouseEnter={(e) => {
-              if (!loading) e.currentTarget.style.backgroundColor = BRAND_BLUE_HOVER;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = BRAND_BLUE;
-            }}
+            className="bg-[#00234b] hover:bg-black text-white rounded-xl lg:rounded-full px-8 py-4 font-bold transition-all flex items-center justify-center gap-2 shadow-xl hover:-translate-y-0.5 active:translate-y-0 lg:shrink-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
-            {loading ? "Recherche..." : "Rechercher"}
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Search className="w-4 h-4" />
+            )}
+            <span>Rechercher</span>
           </button>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center items-center py-24">
-            <Loader2 className="w-8 h-8 animate-spin" style={{ color: BRAND_BLUE }} />
-          </div>
-        ) : (
-          <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
-            {/* Sidebar */}
-            <aside className="w-full lg:w-[280px] shrink-0 space-y-4">
-              <div
-                className="rounded-xl p-5"
-                style={{ backgroundColor: BEIGE_PANEL }}
-              >
-                <h2 className="text-sm font-bold text-gray-900 mb-4">
-                  Inclus dans l&apos;offre :
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+          {/* Sidebar — after the results on mobile, left column on desktop */}
+          <aside className="w-full lg:w-[280px] shrink-0 order-last lg:order-first">
+            <div className="space-y-4 lg:sticky lg:top-24">
+              <div className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-sm">
+                <h2 className="text-sm font-extrabold text-[#00234b] mb-4">
+                  Inclus dans l&apos;offre
                 </h2>
-                <ul className="space-y-2.5">
+                <ul className="space-y-3">
                   {offerInclusions.map((item, i) => (
                     <li key={i} className="flex items-start gap-2.5 text-[13px] text-gray-700">
-                      <Check className="w-4 h-4 text-gray-600 shrink-0 mt-0.5" strokeWidth={2.5} />
+                      <span className="w-5 h-5 rounded-full bg-[#e5f4fd] flex items-center justify-center shrink-0 mt-[-1px]">
+                        <Check className="w-3 h-3 text-[#1278CC]" strokeWidth={3} />
+                      </span>
                       <span>{item}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-200/80 p-4 flex gap-3">
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-bold text-white"
-                  style={{ backgroundColor: "#1278CC" }}
-                >
-                  CPF
-                </div>
+              <div className="bg-white rounded-2xl border border-gray-200/80 p-4 flex items-center gap-3 shadow-sm">
+                <Image
+                  src="/icons/wallet.png"
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="shrink-0"
+                />
                 <p className="text-[12px] text-gray-600 leading-snug">
                   Financement avec votre CPF (demandeurs d&apos;emploi)
                 </p>
               </div>
 
-              <div className="bg-white rounded-xl border border-gray-200/80 p-4 flex gap-3">
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 text-white text-xs font-bold"
-                  style={{ backgroundColor: "#E91E8C" }}
-                >
-                  4x
-                </div>
+              <div className="bg-white rounded-2xl border border-gray-200/80 p-4 flex items-center gap-3 shadow-sm">
+                <Image
+                  src="/icons/money.png"
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="shrink-0"
+                />
                 <p className="text-[12px] text-gray-600 leading-snug">
                   Paiement en 4x sans frais possible
                 </p>
               </div>
-            </aside>
+            </div>
+          </aside>
 
-            {/* Results */}
-            <main className="flex-1 min-w-0">
-              {stages.length === 0 ? (
-                <div className="text-center py-16 bg-white rounded-xl border border-gray-200/80">
-                  <p className="text-gray-500">Aucun stage trouvé pour ces critères.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-                    <div>
-                      <p className="text-[13px] text-gray-500 mb-1">
-                        {stages.length} stage{stages.length > 1 ? "s" : ""} disponible
-                        {stages.length > 1 ? "s" : ""}
-                      </p>
-                      <div className="flex items-center gap-3">
-                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                          {visibleMonthLabel}
-                        </h2>
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              selectedMonth && setSelectedMonth(shiftMonthKey(selectedMonth, -1))
-                            }
-                            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
-                            aria-label="Mois précédent"
-                          >
-                            <ChevronLeft className="w-4 h-4 text-gray-700" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              selectedMonth && setSelectedMonth(shiftMonthKey(selectedMonth, 1))
-                            }
-                            className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
-                            aria-label="Mois suivant"
-                          >
-                            <ChevronRight className="w-4 h-4 text-gray-700" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+          {/* Results */}
+          <main className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+              <div>
+                <p className="text-[13px] text-gray-500 mb-1">
+                  {loading
+                    ? "Recherche en cours..."
+                    : `${stages.length} stage${stages.length > 1 ? "s" : ""} disponible${stages.length > 1 ? "s" : ""}`}
+                </p>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#00234b]">
+                    {visibleMonthLabel}
+                  </h2>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        selectedMonth && setSelectedMonth(shiftMonthKey(selectedMonth, -1))
+                      }
+                      className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 bg-white hover:border-[#1278CC] hover:text-[#1278CC] text-gray-700 transition-colors shadow-sm"
+                      aria-label="Mois précédent"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        selectedMonth && setSelectedMonth(shiftMonthKey(selectedMonth, 1))
+                      }
+                      className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 bg-white hover:border-[#1278CC] hover:text-[#1278CC] text-gray-700 transition-colors shadow-sm"
+                      aria-label="Mois suivant"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
+                </div>
+              </div>
+            </div>
 
-                  <ul className="space-y-4">
-                    {stages.map((stage, index) => {
-                      const locationCity =
-                        stage.auto_ecole_city || displayCity(city);
-                      const metroLine =
-                        stage.auto_ecole_address ||
-                        METRO_LINES[index % METRO_LINES.length];
-                      const postalCode =
-                        stage.auto_ecole_postal_code ||
-                        (stage.auto_ecole_region === "ILE DE FRANCE"
-                          ? String(75000 + (index % 20) * 100)
-                          : String(30000 + (index % 50) * 1000));
+            {loading ? (
+              <ul className="space-y-4">
+                <StageCardSkeleton />
+                <StageCardSkeleton />
+                <StageCardSkeleton />
+              </ul>
+            ) : stages.length === 0 ? (
+              <div className="text-center py-16 px-6 bg-white rounded-2xl border border-gray-200/80 shadow-sm">
+                <Image
+                  src="/icons/Search.png"
+                  alt=""
+                  width={64}
+                  height={64}
+                  className="mx-auto mb-4"
+                />
+                <p className="text-[#00234b] font-bold mb-1">
+                  Aucun stage trouvé pour ces critères
+                </p>
+                <p className="text-sm text-gray-500 mb-6">
+                  Essayez un autre mois ou modifiez vos filtres.
+                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    selectedMonth && setSelectedMonth(shiftMonthKey(selectedMonth, 1))
+                  }
+                  className="inline-flex items-center gap-2 bg-[#00234b] hover:bg-black text-white rounded-full px-6 py-3 text-sm font-bold transition-colors"
+                >
+                  Voir le mois suivant
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <ul className="space-y-4">
+                {stages.map((stage, index) => {
+                  const locationCity =
+                    stage.auto_ecole_city || displayCity(city);
+                  const metroLine =
+                    stage.auto_ecole_address ||
+                    METRO_LINES[index % METRO_LINES.length];
+                  const postalCode =
+                    stage.auto_ecole_postal_code ||
+                    (stage.auto_ecole_region === "ILE DE FRANCE"
+                      ? String(75000 + (index % 20) * 100)
+                      : String(30000 + (index % 50) * 1000));
+                  const spots = stage.available_spots;
+                  const lowSpots = typeof spots === "number" && spots > 0 && spots <= 3;
 
-                      return (
-                        <li
-                          key={stage.stage_id}
-                          className="bg-white rounded-xl border border-gray-200/90 overflow-hidden flex flex-col sm:flex-row"
+                  return (
+                    <li
+                      key={stage.stage_id}
+                      className="group bg-white rounded-2xl border border-gray-200/80 overflow-hidden flex flex-col sm:flex-row shadow-sm hover:shadow-xl hover:-translate-y-0.5 hover:border-[#1278CC]/30 transition-all duration-200"
+                    >
+                      {/* Left: details */}
+                      <div className="flex-1 p-5 sm:p-6">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Image
+                            src="/icons/calendar.png"
+                            alt=""
+                            width={38}
+                            height={38}
+                            className="shrink-0"
+                          />
+                          <p className="text-[17px] sm:text-[18px] font-extrabold tracking-tight text-[#00234b]">
+                            {formatStageDateRange(stage.start_date, stage.end_date)}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 mb-4">
+                          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full">
+                            <Image
+                              src="/icons/alarm-clock.png"
+                              alt=""
+                              width={16}
+                              height={16}
+                            />
+                            {daysUntil(stage.start_date)}
+                          </span>
+                          {lowSpots ? (
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-300 px-3 py-1 rounded-full shadow-sm">
+                              <span className="relative flex w-2 h-2">
+                                <span className="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75 animate-ping" />
+                                <span className="relative inline-flex w-2 h-2 rounded-full bg-amber-500" />
+                              </span>
+                              Plus que {spots} place{spots > 1 ? "s" : ""} !
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-green-800 bg-gradient-to-b from-green-50 to-emerald-100/70 border border-green-300/70 px-3 py-1 rounded-full shadow-sm">
+                              <span className="relative flex w-2 h-2">
+                                <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75 animate-ping" />
+                                <span className="relative inline-flex w-2 h-2 rounded-full bg-green-500" />
+                              </span>
+                              Places disponibles
+                            </span>
+                          )}
+                        </div>
+
+                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+                          <li className="flex items-center gap-2.5 text-[13px] text-gray-700">
+                            <MapPin className="w-4 h-4 text-[#1278CC]/70 shrink-0" />
+                            {locationCity}
+                          </li>
+                          <li className="flex items-center gap-2.5 text-[13px] text-gray-700">
+                            <Hash className="w-4 h-4 text-[#1278CC]/70 shrink-0" />
+                            {postalCode}
+                          </li>
+                          <li className="flex items-center gap-2.5 text-[13px] text-gray-700">
+                            <Car className="w-4 h-4 text-[#1278CC]/70 shrink-0" />
+                            {transmissionLabel}
+                          </li>
+                          <li className="flex items-center gap-2.5 text-[13px] text-gray-700">
+                            <Clock className="w-4 h-4 text-[#1278CC]/70 shrink-0" />
+                            {stageHours
+                              ? `${stageHours.replace("H", "")} heures de conduite`
+                              : getDrivingHours(offerKey)}
+                          </li>
+                          <li className="flex items-start gap-2.5 text-[13px] text-gray-700 sm:col-span-2">
+                            <BookOpen className="w-4 h-4 text-[#1278CC]/70 shrink-0 mt-0.5" />
+                            <span className="line-clamp-2">{metroLine}</span>
+                          </li>
+                        </ul>
+                      </div>
+
+                      {/* Right: price & CTA */}
+                      <div className="sm:w-[210px] md:w-[230px] shrink-0 p-5 sm:p-6 flex flex-col items-center justify-center border-t sm:border-t-0 sm:border-l border-gray-200/80 bg-[#FAF8F5]">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">
+                          Dès
+                        </span>
+                        <p className="text-[24px] sm:text-[26px] font-extrabold tracking-tight text-[#00234b] mb-2">
+                          {formatPrice(stage.price)}
+                        </p>
+                        <span className="text-[10px] font-bold text-white uppercase tracking-wide px-3 py-1 rounded-full bg-[#5FA82B] mb-4">
+                          4x sans frais
+                        </span>
+                        <Link
+                          href={`/stage/${stage.stage_id}`}
+                          className="w-full flex items-center justify-center gap-1.5 py-3 rounded-full bg-[#ffcb00] hover:bg-[#f0bd00] text-[#00234b] text-[13px] font-extrabold transition-all shadow-md shadow-amber-200/60 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
                         >
-                          {/* Left: details */}
-                          <div className="flex-1 p-5 sm:p-6 sm:border-r border-gray-200/90">
-                            <p className="text-[17px] sm:text-[18px] font-bold text-gray-900 mb-4">
-                              {formatStageDateRange(stage.start_date, stage.end_date)}
-                            </p>
-
-                            <ul className="space-y-2 mb-5">
-                              <li className="flex items-center gap-2.5 text-[13px] text-gray-700">
-                                <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
-                                {locationCity}
-                              </li>
-                              <li className="flex items-start gap-2.5 text-[13px] text-gray-700">
-                                <BookOpen className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
-                                <span className="line-clamp-2">{metroLine}</span>
-                              </li>
-                              <li className="flex items-center gap-2.5 text-[13px] text-gray-700">
-                                <Hash className="w-4 h-4 text-gray-400 shrink-0" />
-                                {postalCode}
-                              </li>
-                              <li className="flex items-center gap-2.5 text-[13px] text-gray-700">
-                                <Car className="w-4 h-4 text-gray-400 shrink-0" />
-                                {transmissionLabel}
-                              </li>
-                              <li className="flex items-center gap-2.5 text-[13px] text-gray-700">
-                                <Clock className="w-4 h-4 text-gray-400 shrink-0" />
-                                {stageHours
-                                  ? `${stageHours.replace("H", "")} heures de conduite`
-                                  : getDrivingHours(offerKey)}
-                              </li>
-                            </ul>
-
-                            <p className="text-[12px] text-gray-400">
-                              {daysUntil(stage.start_date)}
-                            </p>
-                          </div>
-
-                          {/* Right: price & CTA */}
-                          <div className="sm:w-[200px] md:w-[220px] shrink-0 p-5 sm:p-6 flex flex-col items-center justify-center border-t sm:border-t-0 border-gray-200/90 bg-[#fafafa]/50">
-                            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">
-                              Dès
-                            </span>
-                            <p className="text-[22px] sm:text-[24px] font-bold text-gray-900 mb-3">
-                              {formatPrice(stage.price)}
-                            </p>
-                            <span
-                              className="text-[10px] font-bold text-white uppercase tracking-wide px-3 py-1 rounded mb-4"
-                              style={{ backgroundColor: GREEN_BADGE }}
-                            >
-                              4x sans frais
-                            </span>
-                            <Link
-                              href={`/stage/${stage.stage_id}`}
-                              className="w-full text-center py-2.5 rounded-lg text-white text-[13px] font-semibold transition-colors"
-                              style={{ backgroundColor: BRAND_BLUE }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = BRAND_BLUE_HOVER;
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = BRAND_BLUE;
-                              }}
-                            >
-                              RESERVER
-                            </Link>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </>
-              )}
-            </main>
-          </div>
-        )}
+                          Réserver
+                          <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                        </Link>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </main>
+        </div>
       </div>
     </div>
   );
@@ -986,12 +1045,9 @@ export default function SearchPage() {
   return (
     <Suspense
       fallback={
-        <div
-          className="min-h-screen flex items-center justify-center"
-          style={{ backgroundColor: BEIGE_BG }}
-        >
+        <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center">
           <div className="text-center">
-            <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4" style={{ color: BRAND_BLUE }} />
+            <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-[#1278CC]" />
             <p className="text-gray-600">Chargement...</p>
           </div>
         </div>
