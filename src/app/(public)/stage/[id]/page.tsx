@@ -24,8 +24,16 @@ type StageDetails = {
   auto_ecole: {
     name: string;
     region: string;
+    city: string | null;
+    postal_code: string | null;
   };
 };
+
+function displayRegion(region: string) {
+  if (region === "ILE DE FRANCE") return "Île-de-France";
+  if (region === "PROVINCE") return "Province";
+  return region;
+}
 
 export default function RecapitulatifPage() {
   const params = useParams();
@@ -50,7 +58,9 @@ export default function RecapitulatifPage() {
           price,
           auto_ecole:auto_ecole_id (
             name,
-            region
+            region,
+            city,
+            postal_code
           )
         `)
         .eq("id", id)
@@ -112,14 +122,13 @@ export default function RecapitulatifPage() {
   const diffTime = Math.abs(end.getTime() - start.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // inclusive
 
-  // Location formatting
-  const region = stage.auto_ecole?.region || "ILE DE FRANCE";
-  const mockZip = region === "ILE DE FRANCE" ? "93160" : "30000";
-  const lines = ["RER A", "RER B", "RER C", "Ligne J", "T9", "Métro"];
-  // Random line based on first letter of id for consistency
-  const charCode = stage.id.charCodeAt(0) || 0;
-  const randomLine = lines[charCode % lines.length];
-  const locationText = `${randomLine} - ${region === "ILE DE FRANCE" ? "Noisy-le-Grand - Mont d'Est" : stage.auto_ecole?.name} (${mockZip})`;
+  // Location: only the city before payment. The street address is
+  // shared after the booking is paid.
+  const city = stage.auto_ecole?.city?.trim() || "";
+  const postalCode = stage.auto_ecole?.postal_code?.trim() || "";
+  const locationText = city
+    ? `${city}${postalCode ? ` (${postalCode})` : ""}`
+    : displayRegion(stage.auto_ecole?.region || "ILE DE FRANCE");
 
   // Derived attributes
   const isAuto = stage.title.toLowerCase().includes("automatique");

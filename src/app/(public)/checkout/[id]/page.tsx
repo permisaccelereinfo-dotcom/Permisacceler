@@ -17,6 +17,7 @@ type StageDetails = {
   auto_ecole: {
     name: string;
     region: string;
+    city: string | null;
   };
 };
 
@@ -251,7 +252,8 @@ export default function CheckoutPage() {
           price,
           auto_ecole:auto_ecole_id (
             name,
-            region
+            region,
+            city
           )
         `)
         .eq("id", id)
@@ -310,9 +312,11 @@ export default function CheckoutPage() {
   const isAuto = stage.title.toLowerCase().includes("automatique");
   const transmission = isAuto ? "Boîte Automatique" : "Boîte Manuelle";
 
-  const region = stage.auto_ecole?.region || "";
+  // Only the city is shown before payment; the street address is shared
+  // once the booking is confirmed.
+  const city = stage.auto_ecole?.city?.trim() || stage.auto_ecole?.region || "";
   const locationText =
-    [stage.auto_ecole?.name, region].filter(Boolean).join(" - ") ||
+    [stage.auto_ecole?.name, city].filter(Boolean).join(" - ") ||
     "Lieu communiqué après réservation";
 
   // Pricing
