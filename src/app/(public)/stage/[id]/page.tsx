@@ -112,9 +112,6 @@ export default function RecapitulatifPage() {
   const diffTime = Math.abs(end.getTime() - start.getTime());
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // inclusive
 
-  // Mock CPF Price (+~16%)
-  const cpfPrice = Math.round(stage.price * 1.166);
-
   // Location formatting
   const region = stage.auto_ecole?.region || "ILE DE FRANCE";
   const mockZip = region === "ILE DE FRANCE" ? "93160" : "30000";
@@ -172,11 +169,8 @@ export default function RecapitulatifPage() {
               <h2 className="text-[15px] font-bold text-white/80 uppercase tracking-wider mb-2">
                 {stage.stage_type || "Stage intensif"}
               </h2>
-              <div className="text-[44px] font-extrabold text-white leading-none tracking-tight mb-2">
+              <div className="text-[44px] font-extrabold text-white leading-none tracking-tight">
                 {stage.price.toLocaleString("fr-FR")} €
-              </div>
-              <div className="text-[11px] font-semibold text-white/60 uppercase tracking-widest">
-                Prix CPF : {cpfPrice.toLocaleString("fr-FR")} €
               </div>
             </div>
 

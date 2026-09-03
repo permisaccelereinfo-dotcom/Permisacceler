@@ -23,7 +23,6 @@ import {
   ChevronDown,
   Clock,
   Check,
-  BookOpen,
   Hash,
   Search,
 } from "lucide-react";
@@ -49,7 +48,6 @@ type StageResult = {
   auto_ecole_region: string;
   auto_ecole_rating: number;
   auto_ecole_city?: string;
-  auto_ecole_address?: string;
   auto_ecole_postal_code?: string;
 };
 
@@ -113,15 +111,6 @@ const DEFAULT_INCLUSIONS = [
   "Accompagnement jusqu'à l'examen",
   "1 date d'examen 100% garantie",
   "Délai : 1 à 9 jours après le stage",
-];
-
-const METRO_LINES = [
-  "République - Métro 5 & 3 & 8 & 9 & 11",
-  "Nation - Métro 1 & 2 & 6 & 9",
-  "Châtelet - Métro 1 & 4 & 7 & 11 & 14",
-  "Gare du Nord - RER B & D & E",
-  "Montparnasse - Métro 4 & 6 & 12 & 13",
-  "Bastille - Métro 1 & 5 & 8",
 ];
 
 function formatMonthKey(year: number, month: number) {
@@ -460,7 +449,7 @@ function SearchContent() {
       const ids = [...new Set(raw.map((s) => s.auto_ecole_id))];
       const { data: schools } = await supabase
         .from("auto_ecoles")
-        .select("id, city, address, postal_code")
+        .select("id, city, postal_code")
         .in("id", ids);
 
       const byId = new Map((schools || []).map((s) => [s.id, s]));
@@ -469,7 +458,6 @@ function SearchContent() {
         return {
           ...stage,
           auto_ecole_city: school?.city || undefined,
-          auto_ecole_address: school?.address || undefined,
           auto_ecole_postal_code: school?.postal_code || undefined,
         };
       });
@@ -558,7 +546,6 @@ function SearchContent() {
               name,
               region,
               city,
-              address,
               postal_code
             )
           `
@@ -583,7 +570,6 @@ function SearchContent() {
             name: string;
             region: string;
             city: string;
-            address: string;
             postal_code: string;
           };
         };
@@ -653,7 +639,6 @@ function SearchContent() {
           auto_ecole_region: stage.auto_ecole.region,
           auto_ecole_rating: 0,
           auto_ecole_city: stage.auto_ecole.city,
-          auto_ecole_address: stage.auto_ecole.address,
           auto_ecole_postal_code: stage.auto_ecole.postal_code,
         }));
 
@@ -822,19 +807,6 @@ function SearchContent() {
 
               <div className="bg-white rounded-2xl border border-gray-200/80 p-4 flex items-center gap-3 shadow-sm">
                 <Image
-                  src="/icons/wallet.png"
-                  alt=""
-                  width={40}
-                  height={40}
-                  className="shrink-0"
-                />
-                <p className="text-[12px] text-gray-600 leading-snug">
-                  Financement avec votre CPF (demandeurs d&apos;emploi)
-                </p>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-gray-200/80 p-4 flex items-center gap-3 shadow-sm">
-                <Image
                   src="/icons/money.png"
                   alt=""
                   width={40}
@@ -924,9 +896,6 @@ function SearchContent() {
                 {stages.map((stage, index) => {
                   const locationCity =
                     stage.auto_ecole_city || displayCity(city);
-                  const metroLine =
-                    stage.auto_ecole_address ||
-                    METRO_LINES[index % METRO_LINES.length];
                   const postalCode =
                     stage.auto_ecole_postal_code ||
                     (stage.auto_ecole_region === "ILE DE FRANCE"
@@ -1002,10 +971,6 @@ function SearchContent() {
                             {stageHours
                               ? `${stageHours.replace("H", "")} heures de conduite`
                               : getDrivingHours(offerKey)}
-                          </li>
-                          <li className="flex items-start gap-2.5 text-[13px] text-gray-700 sm:col-span-2">
-                            <BookOpen className="w-4 h-4 text-[#1278CC]/70 shrink-0 mt-0.5" />
-                            <span className="line-clamp-2">{metroLine}</span>
                           </li>
                         </ul>
                       </div>

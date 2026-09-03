@@ -172,7 +172,6 @@ export default function CheckoutPage() {
 
     // Questions
     handicap: "",
-    logement: "",
     dejaPassePermis: "",
     aLeCode: "",
     neph: "",
@@ -336,6 +335,9 @@ export default function CheckoutPage() {
         throw new Error(
           "Veuillez attester avoir déjà effectué 20h de conduite dans une école de conduite."
         );
+      }
+      if (!/^\d{12}$/.test(formData.neph.trim())) {
+        throw new Error("Veuillez renseigner votre numéro NEPH (12 chiffres).");
       }
 
       // 1. If not logged in, create account
@@ -619,31 +621,18 @@ export default function CheckoutPage() {
                   />
                 </div>
 
-                {/* Logement */}
-                <div>
-                  <h3 className="text-[15px] font-bold text-[#00234b] mb-3.5">
-                    Avez-vous votre propre logement ?
-                  </h3>
-                  <ChoiceGroup
-                    name="logement"
-                    value={formData.logement}
-                    onSelect={(v) => handleRadioChange("logement", v)}
-                    options={[
-                      { id: 'oui', label: "Oui, j'ai des factures à mon nom" },
-                      { id: 'non', label: "Non, je n'ai pas de factures à mon nom" },
-                    ]}
-                  />
-                </div>
-
                 {/* NEPH */}
-                <Field label="Numéro NEPH (facultatif)">
+                <Field label="Numéro NEPH (obligatoire)">
                   <input
                     type="text"
                     name="neph"
-                    placeholder="Numéro NEPH"
+                    placeholder="Numéro NEPH (12 chiffres)"
                     value={formData.neph}
                     onChange={handleChange}
                     className={inputClass}
+                    inputMode="numeric"
+                    maxLength={12}
+                    required
                   />
                 </Field>
               </div>

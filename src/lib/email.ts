@@ -43,6 +43,7 @@ export function buildConfirmationEmail(
   userName: string,
   stageTitle: string,
   autoEcoleName: string,
+  autoEcoleAddress: string,
   startDate: string,
   endDate: string,
   totalPrice: number
@@ -71,6 +72,10 @@ export function buildConfirmationEmail(
               <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: 600;">${autoEcoleName}</td>
             </tr>
             <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #eee; color: #666;">Adresse du stage</td>
+              <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: 600;">${autoEcoleAddress || "Communiquée par l'auto-école"}</td>
+            </tr>
+            <tr>
               <td style="padding: 8px; border-bottom: 1px solid #eee; color: #666;">Période</td>
               <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: 600;">Du ${formattedStart} au ${formattedEnd}</td>
             </tr>
@@ -95,6 +100,7 @@ export function buildReceiptEmail(
   bookingId: string,
   stageTitle: string,
   autoEcoleName: string,
+  autoEcoleAddress: string,
   autoEcoleCity: string,
   autoEcolePhone: string,
   autoEcoleEmail: string,
@@ -149,6 +155,10 @@ export function buildReceiptEmail(
             <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
               <span style="color: #6b7280;">Nom</span>
               <span style="font-weight: 600;">${autoEcoleName}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+              <span style="color: #6b7280;">Adresse</span>
+              <span style="font-weight: 600;">${autoEcoleAddress}</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
               <span style="color: #6b7280;">Ville</span>

@@ -195,6 +195,14 @@ async function sendMissingBookingEmails(
   const stageTitle = stageData?.title || "Stage";
   const autoEcoleName = autoEcoleData?.name || "";
   const autoEcoleCity = autoEcoleData?.city || "";
+  const autoEcoleStreet = autoEcoleData?.address || "";
+  const autoEcolePostalCode = autoEcoleData?.postal_code || "";
+  const autoEcoleAddress = [
+    autoEcoleStreet,
+    [autoEcolePostalCode, autoEcoleCity].filter(Boolean).join(" "),
+  ]
+    .filter(Boolean)
+    .join(", ");
   const autoEcolePhone = autoEcoleData?.phone || "";
   const autoEcoleEmail = autoEcoleData?.email || "";
   const startDate = stageData?.start_date || "";
@@ -211,6 +219,7 @@ async function sendMissingBookingEmails(
       userName,
       stageTitle,
       autoEcoleName,
+      autoEcoleAddress,
       startDate,
       endDate,
       totalPrice
@@ -234,6 +243,7 @@ async function sendMissingBookingEmails(
       fullBooking.id,
       stageTitle,
       autoEcoleName,
+      autoEcoleStreet,
       autoEcoleCity,
       autoEcolePhone,
       autoEcoleEmail,

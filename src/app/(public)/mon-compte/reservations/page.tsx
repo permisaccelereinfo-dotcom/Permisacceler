@@ -53,7 +53,7 @@ export default function StudentReservations() {
           *,
           stage:stage_id (
             *,
-            auto_ecole:auto_ecole_id (name, city, phone, email)
+            auto_ecole:auto_ecole_id (name, city, address, postal_code, phone, email)
           )
         `)
         .eq("user_id", user.id)
@@ -162,7 +162,7 @@ body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
 <div class="section">
 <h2>Auto-école</h2>
 <div class="row"><span>Nom</span><span>${esc(autoEcole?.name || "N/A")}</span></div>
-<div class="row"><span>Ville</span><span>${esc(autoEcole?.city || "N/A")}</span></div>
+<div class="row"><span>Adresse</span><span>${esc([autoEcole?.address, [autoEcole?.postal_code, autoEcole?.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "N/A")}</span></div>
 <div class="row"><span>Téléphone</span><span>${esc(autoEcole?.phone || "N/A")}</span></div>
 <div class="row"><span>Email</span><span>${esc(autoEcole?.email || "N/A")}</span></div>
 </div>
@@ -298,7 +298,13 @@ body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
                       {booking.stage?.auto_ecole?.name && (
                         <span className="flex items-center gap-1.5">
                           <MapPin className="w-4 h-4" />
-                          {[booking.stage.auto_ecole.name, booking.stage.auto_ecole.city]
+                          {[
+                            booking.stage.auto_ecole.name,
+                            booking.stage.auto_ecole.address,
+                            [booking.stage.auto_ecole.postal_code, booking.stage.auto_ecole.city]
+                              .filter(Boolean)
+                              .join(" "),
+                          ]
                             .filter(Boolean)
                             .join(" - ")}
                         </span>

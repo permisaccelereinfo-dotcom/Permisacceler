@@ -14,7 +14,6 @@ const ALLOWED_METADATA_KEYS = [
   "complementAdresse",
   "codePostal",
   "handicap",
-  "logement",
   "dejaPassePermis",
   "aLeCode",
   "neph",
